@@ -14,14 +14,13 @@ var CustomJwt = jwt.New(jwt.Config{
 	ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 		return MySecret, nil
 	},
-	Expiration:          true,
-	CredentialsOptional: true,
-	SigningMethod:       jwt.SigningMethodHS256,
+	Expiration:    true,
+	SigningMethod: jwt.SigningMethodHS256,
 })
 
 // 登录token存储信息 记录到上下文中
 func TokenToUserUidMiddleware(ctx iris.Context) {
-	user := ctx.Values().Get("jwt").(*jwt.Token)
+	user := ctx.Values().Get(CustomJwt.Config.ContextKey).(*jwt.Token)
 	jwtData := user.Claims.(jwt.MapClaims)
 	userUid := jwtData["userUid"].(string)
 	// 这里可以遍历所有的token信息
