@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	xormadapter "github.com/casbin/xorm-adapter"
@@ -21,7 +22,6 @@ type Config struct {
 	UserModel         interface{}       // 用户模型
 	RunSync           bool              // 是否进行sync
 	EnableReg         bool              // 是否启用注册
-	EnableInitAdmin   bool
 	Prefix            string
 	InitAdminUserName string
 	InitAdminPassword string
@@ -41,7 +41,6 @@ func (config *Config) init() Config {
 		UserModel:         new(UserModel),
 		RunSync:           true,
 		EnableReg:         true,
-		EnableInitAdmin:   true,
 		Prefix:            "/admin",
 		InitAdminUserName: "admin",
 		InitAdminPassword: "iris_best",
@@ -61,11 +60,6 @@ func (config *Config) valid() error {
 	}
 	if len(config.ModelList) < 1 {
 		return errors.New("please check config , modelList is empty ")
-	}
-	if config.EnableInitAdmin == true {
-		if len(config.InitAdminUserName) < 1 || len(config.InitAdminPassword) < 1 {
-			return errors.New("please check config , InitAdminUserName or InitAdminPassword is empty")
-		}
 	}
 	if len(config.Prefix) < 1 {
 		return errors.New("please check config , prefix is required")
@@ -130,9 +124,31 @@ func (config *Config) runSync() error {
 func (config *Config) generateTables() []string {
 	tables := make([]string, len(config.ModelList))
 	for _, item := range config.ModelList {
-		tables = append(tables, config.Engine.TableName(item))
+		tableName := config.Engine.TableName(item)
+		tables = append(tables, tableName)
 	}
 	return tables
+}
+
+// 通过模型名获取模型信息
+func (config *Config) tableNameToFieldAndTypes(tableName string) (map[string]string, error) {
+	for _, item := range config.ModelList {
+		if config.Engine.TableName(item) == tableName {
+			t := reflect.TypeOf(item)
+			if t.Kind() == reflect.Ptr {
+				t = t.Elem()
+			}
+			fieldNum := t.NumField()
+			result := make(map[string]string, fieldNum)
+			for i := 0; i < fieldNum; i++ {
+				f := t.Field(i)
+				n := t.Field(i).Name
+				result[n] = f.Type.String()
+			}
+			return result, nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("not find this table %s", tableName))
 }
 
 // 获取用户表

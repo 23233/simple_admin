@@ -18,6 +18,14 @@ type SpAdmin struct {
 	config         Config
 	casbinEnforcer *casbin.Enforcer
 	modelTables    []string
+	defaultMethods map[string]string // 默认权限方法
+	defaultRole    map[string]string // 默认角色
+	sitePolicy     map[string]string
+}
+
+type Policy struct {
+	Path   string `json:"path"`
+	Method string `json:"method"`
 }
 
 func New(c Config) (*SpAdmin, error) {
@@ -41,6 +49,9 @@ func New(c Config) (*SpAdmin, error) {
 		return nil, err
 	}
 
+	// 把用户模型合并到模型表格中
+	c.ModelList = append(c.ModelList, c.UserModel)
+
 	// 生成表名列表
 	modelTables := c.generateTables()
 
@@ -48,17 +59,35 @@ func New(c Config) (*SpAdmin, error) {
 		config:         c,
 		casbinEnforcer: enforcer,
 		modelTables:    modelTables,
+		defaultMethods: map[string]string{
+			"GET":    "GET",
+			"POST":   "POST",
+			"PUT":    "PUT",
+			"DELETE": "DELETE",
+		},
+		defaultRole: map[string]string{
+			"guest": "guest",
+			"staff": "staff",
+			"admin": "admin",
+		},
+		sitePolicy: map[string]string{
+			"login_site":  "login_site",
+			"user_manage": "user_manage",
+		},
 	}
 	// 进行视图注册绑定
 	NowSpAdmin.Register()
 
-	// 进行初始化管理员操作
-	if c.EnableInitAdmin {
-		// 初始化管理员
-		_, err := NowSpAdmin.addUser(c.InitAdminUserName, c.InitAdminPassword)
-		if err != nil {
-			log.Printf("init admin user fail: %s", err.Error())
-		}
+	// 初始化权限
+	err = NowSpAdmin.initRolesAndPermissions()
+	if err != nil {
+		return nil, err
+	}
+
+	// 初始化管理员
+	_, err = NowSpAdmin.addUser(c.InitAdminUserName, c.InitAdminPassword, NowSpAdmin.defaultRole["admin"])
+	if err != nil {
+		log.Printf("init admin user fail: %s", err.Error())
 	}
 
 	return NowSpAdmin, nil
@@ -72,10 +101,13 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	router.Post("/login", Login)
 	// 注册
 	router.Post("/reg", Reg)
+	c := router.Party("/v", CustomJwt.Serve, TokenToUserUidMiddleware)
+	// 获取所有表
+	c.Get("/get_routers", GetRouters)
+	c.Get("/get_routers/{routerName:string}", GetRouterFields)
+	// 获取单表列信息
 	// todo 接下来开发这部分
-	//c := router.Party("/v",CustomJwt.Serve, TokenToUserUidMiddleware)
-	//// 获取所有表
-	//c.Get("/get_routers")
+
 	//// 查看
 	//c.Get("/{routerName:string}")
 	//c.Get("/{routerName:string}/{id:uint64}")
@@ -85,16 +117,6 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	//c.Put("/{routerName:string}")
 	//// 删除
 	//c.Delete("/{routerName:string}/{id:uint64}")
-}
-
-// 新增登录网站权限
-func (lib *SpAdmin) addLoginSitePermission(userId string) error {
-	return lib.policyChange(userId, "login_site", "POST", true)
-}
-
-// 是否拥有登录权限
-func (lib *SpAdmin) hasLoginPolicy(userId string) bool {
-	return lib.policyHas(userId, "login_site", "POST")
 }
 
 // 权限变更
@@ -118,13 +140,33 @@ func (lib *SpAdmin) policyChange(userId, path, methods string, add bool) error {
 
 }
 
-// 权限校验
-func (lib *SpAdmin) policyHas(userId, path, methods string) bool {
-	return lib.casbinEnforcer.HasPolicy(userId, path, methods)
+// 获取权限 根据注册model filterMethods only needs methods data
+func (lib *SpAdmin) getAllPolicy(userIdOrRoleName string, filterMethods []string) [][]string {
+	policyList := make([][]string, (len(lib.modelTables)+len(lib.sitePolicy))*len(lib.defaultMethods))
+	var d []string
+	for _, v := range lib.sitePolicy {
+		d = append(d, v)
+	}
+	full := append(lib.modelTables, d...)
+	for _, item := range full {
+		if len(item) >= 1 {
+			for _, method := range lib.defaultMethods {
+				if StringsContains(filterMethods, method) {
+					policyList = append(policyList, []string{userIdOrRoleName, item, method})
+				}
+			}
+		}
+
+	}
+	return policyList
 }
 
 // 新建用户
-func (lib *SpAdmin) addUser(userName, password string) (int64, error) {
+func (lib *SpAdmin) addUser(userName, password string, role string) (int64, error) {
+	values := GetMapValues(lib.defaultRole)
+	if StringsContains(values, role) == false {
+		return 0, errors.New(fmt.Sprintf("role params not in %s", values))
+	}
 	ps, salt := lib.config.passwordSalt(password)
 	// 获取表名
 	tableName := lib.config.getUserModelTableName()
@@ -141,17 +183,77 @@ func (lib *SpAdmin) addUser(userName, password string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	aff, err := success.LastInsertId()
-	if aff == 0 || err != nil {
+	userUid, err := success.LastInsertId()
+	if userUid == 0 || err != nil {
 		return 0, errors.New("insert user fail")
 	}
 
-	// 写入登录权限
-	err = lib.addLoginSitePermission(strconv.FormatInt(aff, 10))
-	if err != nil {
-		return 0, err
+	uid := strconv.FormatInt(userUid, 10)
+
+	// 把用户写入群组
+	stats, err := lib.casbinEnforcer.AddRoleForUser(uid, role)
+	if stats != true || err != nil {
+		return 0, errors.New(fmt.Sprintf("add user to role:%s fail %s", role, err))
 	}
-	return aff, nil
+	return userUid, nil
+}
+
+// 初始化权限和角色 颗粒度粗放
+func (lib *SpAdmin) initRolesAndPermissions() error {
+	// 先创建角色
+	for _, role := range lib.defaultRole {
+		switch role {
+		case "guest":
+			// 来宾只能登录
+			_, err := lib.casbinEnforcer.AddPermissionForUser(role, lib.sitePolicy["login_site"], "POST")
+			if err != nil {
+				return errors.New(fmt.Sprintf("init guest role fail %s", err))
+			}
+			break
+		case "staff":
+			// 职员只能看
+			rules := lib.getAllPolicy(role, []string{"GET"})
+			for _, rule := range rules {
+				if rule != nil {
+					_, err := lib.casbinEnforcer.AddPermissionForUser(role, rule[1], rule[2])
+					if err != nil {
+						return errors.New(fmt.Sprintf("init staff role fail %s", err))
+					}
+				}
+			}
+			break
+		case "admin":
+			// 所有都能干
+			rules := lib.getAllPolicy("admin", []string{"POST", "PUT", "DELETE"})
+			for _, rule := range rules {
+				if rule != nil {
+					_, err := lib.casbinEnforcer.AddPermissionForUser(role, rule[1], rule[2])
+					if err != nil {
+						return errors.New(fmt.Sprintf("init admin role fail %s", err))
+					}
+				}
+			}
+			// 管理员还能进行用户管理
+			for _, value := range lib.defaultMethods {
+				_, err := lib.casbinEnforcer.AddPermissionForUser(role, lib.sitePolicy["user_manage"], value)
+				if err != nil {
+					return errors.New(fmt.Sprintf("init admin user manage fail  %s", err))
+				}
+			}
+
+			break
+		}
+	}
+	// 创建角色继承
+	_, err := lib.casbinEnforcer.AddRoleForUser(lib.defaultRole["admin"], lib.defaultRole["staff"])
+	if err != nil {
+		return errors.New(fmt.Sprintf("role admin has stfall fail  %s", err))
+	}
+	_, err = lib.casbinEnforcer.AddRoleForUser(lib.defaultRole["staff"], lib.defaultRole["guest"])
+	if err != nil {
+		return errors.New(fmt.Sprintf("role staff has guest fail %s", err))
+	}
+	return nil
 }
 
 // 分页
