@@ -22,7 +22,7 @@ Hope to help everyone !
 ## use
 
 Install
-```cassandraql
+```
 go get https://github.com/23233/simple_admin
 ```
 
