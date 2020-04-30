@@ -3,7 +3,9 @@ package simple_admin
 import (
 	"github.com/23233/simple_admin/v1/validator"
 	"github.com/kataras/iris/v12"
+	"reflect"
 	"strconv"
+	"time"
 )
 
 func Index(ctx iris.Context) {
@@ -118,7 +120,11 @@ func GetRouters(ctx iris.Context) {
 	result := make(map[string]string, 0)
 	for _, rule := range rules {
 		if rule[2] == NowSpAdmin.defaultMethods["GET"] && rule[1] != NowSpAdmin.sitePolicy["login_site"] {
-			result[rule[1]] = rule[1]
+			if rule[1] == NowSpAdmin.sitePolicy["user_manage"] {
+				result["simple_admin_user_model"] = rule[1]
+			} else {
+				result[rule[1]] = rule[1]
+			}
 		}
 	}
 	_, _ = ctx.JSON(result)
@@ -146,4 +152,159 @@ func GetRouterFields(ctx iris.Context) {
 		})
 		return
 	}
+}
+
+// 获取表数据
+func GetRouterData(ctx iris.Context) {
+	routerName := ctx.Params().Get("routerName")
+	page := ctx.URLParamIntDefault("page", 1)
+	data, err := NowSpAdmin.Pagination(routerName, page)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	_, _ = ctx.JSON(data)
+}
+
+// 获取表单条数据
+func GetRouterSingleData(ctx iris.Context) {
+	routerName := ctx.Params().Get("routerName")
+	id, err := ctx.Params().GetUint64("id")
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	data, err := NowSpAdmin.SingleData(routerName, id)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	_, _ = ctx.JSON(data)
+}
+
+// 新增数据
+func AddRouterData(ctx iris.Context) {
+	routerName := ctx.Params().Get("routerName")
+	// 先获取到字段信息
+	model, err := NowSpAdmin.config.tableNameGetModel(routerName)
+	// 拿到字段对应类型
+	fieldTypes, err := NowSpAdmin.config.tableNameToFieldAndTypes(routerName)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	modelInfo, err := NowSpAdmin.config.Engine.TableInfo(model)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	t := reflect.TypeOf(model)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	newInstance := reflect.New(t)
+
+	for _, column := range modelInfo.Columns() {
+		if column.Name != modelInfo.AutoIncrement {
+			// 判断类型进行赋值
+			f := fieldTypes[column.FieldName]
+			switch f {
+			case "string":
+				d := ctx.PostValue(column.Name)
+				newInstance.Elem().FieldByName(column.FieldName).SetString(d)
+			case "int", "int8", "int16", "int32", "time.Duration":
+				d, err := ctx.PostValueInt(column.Name)
+				if err != nil {
+					ctx.StatusCode(iris.StatusBadRequest)
+					_, _ = ctx.JSON(iris.Map{
+						"detail": err.Error(),
+					})
+					return
+				}
+				newInstance.Elem().FieldByName(column.FieldName).SetInt(int64(d))
+			case "uint", "uint8", "uint16", "uint32":
+				d, err := ctx.PostValueInt(column.Name)
+				if err != nil {
+					ctx.StatusCode(iris.StatusBadRequest)
+					_, _ = ctx.JSON(iris.Map{
+						"detail": err.Error(),
+					})
+					return
+				}
+				newInstance.Elem().FieldByName(column.FieldName).SetUint(uint64(d))
+			case "bool":
+				d, err := ctx.PostValueBool(column.Name)
+				if err != nil {
+					ctx.StatusCode(iris.StatusBadRequest)
+					_, _ = ctx.JSON(iris.Map{
+						"detail": err.Error(),
+					})
+					return
+				}
+				newInstance.Elem().FieldByName(column.FieldName).SetBool(d)
+			case "time", "time.Time":
+				// 需要传入的是unix时间
+				d, err := ctx.PostValueInt(column.Name)
+				if err != nil {
+					ctx.StatusCode(iris.StatusBadRequest)
+					_, _ = ctx.JSON(iris.Map{
+						"detail": err.Error(),
+					})
+					return
+				}
+				// 这里需要转换成时间
+				tt := time.Unix(int64(d), 0)
+
+				newInstance.Elem().FieldByName(column.FieldName).Set(reflect.ValueOf(tt))
+			}
+		}
+	}
+
+	err = NowSpAdmin.addData(routerName, newInstance)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 权限Middleware
+func PolicyValidMiddleware(ctx iris.Context) {
+	userUid := ctx.Values().Get("uid").(string)
+	methods := ctx.Method()
+	routerName := ctx.Params().Get("routerName")
+	has, err := NowSpAdmin.casbinEnforcer.Enforce(userUid, routerName, methods)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	if has == false {
+		ctx.StatusCode(iris.StatusForbidden)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": "no permission to proceed",
+		})
+		return
+	}
+	ctx.Next()
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/kataras/iris/v12"
 	"log"
+	"reflect"
 	"strconv"
 )
 
@@ -26,6 +27,13 @@ type SpAdmin struct {
 type Policy struct {
 	Path   string `json:"path"`
 	Method string `json:"method"`
+}
+
+type PagResult struct {
+	All      int64               `json:"all"`
+	Page     int                 `json:"page"`
+	PageSize int                 `json:"page_size"`
+	Data     []map[string]string `json:"data"`
 }
 
 func New(c Config) (*SpAdmin, error) {
@@ -104,19 +112,17 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	c := router.Party("/v", CustomJwt.Serve, TokenToUserUidMiddleware)
 	// 获取所有表
 	c.Get("/get_routers", GetRouters)
-	c.Get("/get_routers/{routerName:string}", GetRouterFields)
 	// 获取单表列信息
-	// todo 接下来开发这部分
-
-	//// 查看
-	//c.Get("/{routerName:string}")
-	//c.Get("/{routerName:string}/{id:uint64}")
-	//// 增加
-	//c.Post("/{routerName:string}")
-	//// 修改
-	//c.Put("/{routerName:string}")
-	//// 删除
-	//c.Delete("/{routerName:string}/{id:uint64}")
+	c.Get("/get_routers/{routerName:string}", GetRouterFields)
+	// 查看
+	c.Get("/{routerName:string}", PolicyValidMiddleware, GetRouterData)
+	c.Get("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, GetRouterSingleData)
+	// 增加
+	c.Post("/{routerName:string}", PolicyValidMiddleware, AddRouterData)
+	// 修改
+	c.Put("/{routerName:string}", PolicyValidMiddleware)
+	// 删除
+	c.Delete("/{routerName:string}/{id:uint64}", PolicyValidMiddleware)
 }
 
 // 权限变更
@@ -257,8 +263,51 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 }
 
 // 分页
-func (lib *SpAdmin) Pagination() {
+func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
+	var p PagResult
+	pageSize := lib.config.PageSize
+	start := page - 1*pageSize
+	end := page * pageSize
+	// 先获取总数量
+	allCount, err := lib.config.Engine.Table(routerName).Count()
+	if err != nil {
+		return p, err
+	}
 
+	data, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Limit(pageSize).QueryString()
+	if err != nil {
+		return p, err
+	}
+
+	p.PageSize = pageSize
+	p.Page = page
+	p.All = allCount
+	p.Data = data
+	return p, nil
+
+}
+
+// 单条数据获取
+func (lib *SpAdmin) SingleData(routerName string, id uint64) (map[string]string, error) {
+	var valuesMap = make(map[string]string)
+	has, err := lib.config.Engine.Table(routerName).Where("id = ?", id).Get(&valuesMap)
+	if err != nil {
+		return valuesMap, err
+	}
+	if has == false {
+		return valuesMap, errors.New("not find data")
+	}
+	return valuesMap, nil
+}
+
+// 新增数据
+func (lib *SpAdmin) addData(routerName string, data reflect.Value) error {
+	uid, err := lib.config.Engine.Table(routerName).InsertOne(data.Interface())
+	if uid == 0 || err != nil {
+		return errors.New(fmt.Sprintf("insert data fail %s", err))
+	}
+	// 获取
+	return nil
 }
 
 // 注册视图
