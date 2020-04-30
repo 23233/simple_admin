@@ -22,6 +22,7 @@ type Config struct {
 	UserModel         interface{}       // 用户模型
 	RunSync           bool              // 是否进行sync
 	EnableReg         bool              // 是否启用注册
+	PageSize          int
 	Prefix            string
 	InitAdminUserName string
 	InitAdminPassword string
@@ -41,6 +42,7 @@ func (config *Config) init() Config {
 		UserModel:         new(UserModel),
 		RunSync:           true,
 		EnableReg:         true,
+		PageSize:          20,
 		Prefix:            "/admin",
 		InitAdminUserName: "admin",
 		InitAdminPassword: "iris_best",
@@ -149,6 +151,16 @@ func (config *Config) tableNameToFieldAndTypes(tableName string) (map[string]str
 		}
 	}
 	return nil, errors.New(fmt.Sprintf("not find this table %s", tableName))
+}
+
+// 通过模型名获取实例
+func (config *Config) tableNameGetModel(tableName string) (interface{}, error) {
+	for _, item := range config.ModelList {
+		if config.Engine.TableName(item) == tableName {
+			return item, nil
+		}
+	}
+	return nil, errors.New("not find table")
 }
 
 // 获取用户表
