@@ -71,8 +71,13 @@ Go -> Run you app  open browser http://127.0.0.1:8080/admin Yes god job
 app.Listen(":8080")
 ```
 
+## warning
+* first, now don't support xorm  `deleted` tag
+
+
 
 ## todo features
+- [] full test
 - [] gorm support
 - [] custom action
 - [] fine permission manage
