@@ -79,6 +79,7 @@ app.Listen(":8080")
 ## todo features
 - [] full test
 - [] gorm support
+- [] add websocket dashboard
 - [] custom action
 - [] fine permission manage
 - [] beat more features
