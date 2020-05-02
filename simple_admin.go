@@ -9,6 +9,7 @@ import (
 	"log"
 	"reflect"
 	"strconv"
+	"time"
 )
 
 var (
@@ -120,9 +121,9 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	// 增加
 	c.Post("/{routerName:string}", PolicyValidMiddleware, AddRouterData)
 	// 修改
-	c.Put("/{routerName:string}", PolicyValidMiddleware)
+	c.Put("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, EditRouterData)
 	// 删除
-	c.Delete("/{routerName:string}/{id:uint64}", PolicyValidMiddleware)
+	c.Delete("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, RemoveRouterData)
 }
 
 // 权限变更
@@ -308,6 +309,118 @@ func (lib *SpAdmin) addData(routerName string, data reflect.Value) error {
 	}
 	// 获取
 	return nil
+}
+
+// 数据修改
+func (lib *SpAdmin) editData(routerName string, id uint64, data reflect.Value) error {
+	// 默认只更新非空和非0的字段 xorm的规则
+	// 所以这里启动全量更新 传入数据必须为全量
+	uid, err := lib.config.Engine.Table(routerName).ID(id).AllCols().Update(data.Interface())
+	if uid == 0 || err != nil {
+		return errors.New(fmt.Sprintf("edit data fail %s id:%d router:%s", err, id, routerName))
+	}
+	// 获取
+	return nil
+}
+
+// 数据删除
+func (lib *SpAdmin) deleteData(routerName string, id uint64) error {
+	affected, err := lib.config.Engine.Exec(fmt.Sprintf("delete from %s where id = ?", routerName), id)
+	if err != nil {
+		return err
+	}
+	obj, err := affected.RowsAffected()
+
+	if obj < 1 {
+		return errors.New("delete data fail ")
+	}
+	return nil
+}
+
+// 判断数据是否存在
+func (lib *SpAdmin) dataExists(routerName string, id uint64) (bool, error) {
+	return lib.config.Engine.Table(routerName).Where("id = ?", id).Exist()
+}
+
+// 对应关系获取
+func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.Value, error) {
+	// 先获取到字段信息
+	model, err := lib.config.tableNameGetModel(routerName)
+	// 拿到字段对应类型
+	fieldTypes, err := lib.config.tableNameToFieldAndTypes(routerName)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	modelInfo, err := lib.config.Engine.TableInfo(model)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	t := reflect.TypeOf(model)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	newInstance := reflect.New(t)
+
+	for _, column := range modelInfo.Columns() {
+		if column.Name != modelInfo.AutoIncrement {
+			// 判断类型进行赋值
+			f := fieldTypes[column.FieldName]
+			switch f {
+			case "string":
+				d := ctx.PostValue(column.Name)
+				newInstance.Elem().FieldByName(column.FieldName).SetString(d)
+				continue
+			case "int", "int8", "int16", "int32", "time.Duration":
+				d, err := ctx.PostValueInt(column.Name)
+				if err != nil {
+					ctx.StatusCode(iris.StatusBadRequest)
+					_, _ = ctx.JSON(iris.Map{
+						"detail": err.Error(),
+					})
+					return reflect.Value{}, err
+				}
+				newInstance.Elem().FieldByName(column.FieldName).SetInt(int64(d))
+				continue
+			case "uint", "uint8", "uint16", "uint32":
+				d, err := ctx.PostValueInt(column.Name)
+				if err != nil {
+					ctx.StatusCode(iris.StatusBadRequest)
+					_, _ = ctx.JSON(iris.Map{
+						"detail": err.Error(),
+					})
+					return reflect.Value{}, err
+				}
+				newInstance.Elem().FieldByName(column.FieldName).SetUint(uint64(d))
+				continue
+			case "bool":
+				d, err := ctx.PostValueBool(column.Name)
+				if err != nil {
+					ctx.StatusCode(iris.StatusBadRequest)
+					_, _ = ctx.JSON(iris.Map{
+						"detail": err.Error(),
+					})
+					return reflect.Value{}, err
+				}
+				newInstance.Elem().FieldByName(column.FieldName).SetBool(d)
+				continue
+			case "time", "time.Time":
+				// 需要传入的是unix时间
+				d, err := ctx.PostValueInt(column.Name)
+				if err != nil {
+					ctx.StatusCode(iris.StatusBadRequest)
+					_, _ = ctx.JSON(iris.Map{
+						"detail": err.Error(),
+					})
+					return reflect.Value{}, err
+				}
+				// 这里需要转换成时间
+				tt := time.Unix(int64(d), 0)
+				newInstance.Elem().FieldByName(column.FieldName).Set(reflect.ValueOf(tt))
+				continue
+			}
+		}
+	}
+	return newInstance, nil
 }
 
 // 注册视图
