@@ -1,11 +1,10 @@
 package simple_admin
 
 import (
+	"fmt"
 	"github.com/23233/simple_admin/v1/validator"
 	"github.com/kataras/iris/v12"
-	"reflect"
 	"strconv"
-	"time"
 )
 
 func Index(ctx iris.Context) {
@@ -194,10 +193,7 @@ func GetRouterSingleData(ctx iris.Context) {
 // 新增数据
 func AddRouterData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
-	// 先获取到字段信息
-	model, err := NowSpAdmin.config.tableNameGetModel(routerName)
-	// 拿到字段对应类型
-	fieldTypes, err := NowSpAdmin.config.tableNameToFieldAndTypes(routerName)
+	newInstance, err := NowSpAdmin.getCtxValues(routerName, ctx)
 	if err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
@@ -205,77 +201,77 @@ func AddRouterData(ctx iris.Context) {
 		})
 		return
 	}
-	modelInfo, err := NowSpAdmin.config.Engine.TableInfo(model)
-	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
-	t := reflect.TypeOf(model)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	newInstance := reflect.New(t)
-
-	for _, column := range modelInfo.Columns() {
-		if column.Name != modelInfo.AutoIncrement {
-			// 判断类型进行赋值
-			f := fieldTypes[column.FieldName]
-			switch f {
-			case "string":
-				d := ctx.PostValue(column.Name)
-				newInstance.Elem().FieldByName(column.FieldName).SetString(d)
-			case "int", "int8", "int16", "int32", "time.Duration":
-				d, err := ctx.PostValueInt(column.Name)
-				if err != nil {
-					ctx.StatusCode(iris.StatusBadRequest)
-					_, _ = ctx.JSON(iris.Map{
-						"detail": err.Error(),
-					})
-					return
-				}
-				newInstance.Elem().FieldByName(column.FieldName).SetInt(int64(d))
-			case "uint", "uint8", "uint16", "uint32":
-				d, err := ctx.PostValueInt(column.Name)
-				if err != nil {
-					ctx.StatusCode(iris.StatusBadRequest)
-					_, _ = ctx.JSON(iris.Map{
-						"detail": err.Error(),
-					})
-					return
-				}
-				newInstance.Elem().FieldByName(column.FieldName).SetUint(uint64(d))
-			case "bool":
-				d, err := ctx.PostValueBool(column.Name)
-				if err != nil {
-					ctx.StatusCode(iris.StatusBadRequest)
-					_, _ = ctx.JSON(iris.Map{
-						"detail": err.Error(),
-					})
-					return
-				}
-				newInstance.Elem().FieldByName(column.FieldName).SetBool(d)
-			case "time", "time.Time":
-				// 需要传入的是unix时间
-				d, err := ctx.PostValueInt(column.Name)
-				if err != nil {
-					ctx.StatusCode(iris.StatusBadRequest)
-					_, _ = ctx.JSON(iris.Map{
-						"detail": err.Error(),
-					})
-					return
-				}
-				// 这里需要转换成时间
-				tt := time.Unix(int64(d), 0)
-
-				newInstance.Elem().FieldByName(column.FieldName).Set(reflect.ValueOf(tt))
-			}
-		}
-	}
-
 	err = NowSpAdmin.addData(routerName, newInstance)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 修改数据 -> 全量更新
+func EditRouterData(ctx iris.Context) {
+	routerName := ctx.Params().Get("routerName")
+	id, err := ctx.Params().GetUint64("id")
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	// 获取ID 判断是否存在
+	has, err := NowSpAdmin.dataExists(routerName, id)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	if has != true {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": fmt.Sprintf("not find this data %d", id),
+		})
+		return
+	}
+	newInstance, err := NowSpAdmin.getCtxValues(routerName, ctx)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	// 更新数据
+	err = NowSpAdmin.editData(routerName, id, newInstance)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 删除数据
+func RemoveRouterData(ctx iris.Context) {
+	routerName := ctx.Params().Get("routerName")
+	id, err := ctx.Params().GetUint64("id")
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	// 直接进行删除
+	err = NowSpAdmin.deleteData(routerName, id)
 	if err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
