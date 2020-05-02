@@ -14,5 +14,6 @@ type UserLoginReq struct {
 }
 
 type UserLoginResp struct {
-	Token string `json:"token"`
+	Token string   `json:"token"`
+	Roles []string `json:"roles"`
 }

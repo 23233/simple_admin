@@ -69,6 +69,7 @@ func Login(ctx iris.Context) {
 	jwt := GenJwtToken(valuesMap["id"])
 	var resp validator.UserLoginResp
 	resp.Token = jwt
+	resp.Roles = roles
 	_, _ = ctx.JSON(resp)
 }
 
@@ -101,6 +102,7 @@ func Reg(ctx iris.Context) {
 	jwt := GenJwtToken(strconv.FormatInt(aff, 10))
 	var resp validator.UserLoginResp
 	resp.Token = jwt
+	resp.Roles = []string{"guest"}
 	_, _ = ctx.JSON(resp)
 }
 
