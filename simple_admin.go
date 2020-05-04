@@ -85,7 +85,7 @@ func New(c Config) (*SpAdmin, error) {
 		},
 		sitePolicy: map[string]string{
 			"login_site":  "login_site",
-			"user_manage": "user_manage",
+			"user_manage": c.getUserModelTableName(),
 		},
 	}
 	// 进行视图注册绑定
@@ -121,7 +121,7 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	// 获取所有表
 	c.Get("/get_routers", GetRouters)
 	// 获取单表列信息
-	c.Get("/get_routers/{routerName:string}", GetRouterFields)
+	c.Get("/get_routers/{routerName:string}", PolicyValidMiddleware, GetRouterFields)
 	// 查看
 	c.Get("/{routerName:string}", PolicyValidMiddleware, GetRouterData)
 	c.Get("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, GetRouterSingleData)
@@ -156,7 +156,7 @@ func (lib *SpAdmin) policyChange(userId, path, methods string, add bool) error {
 
 // 获取权限 根据注册model filterMethods only needs methods data
 func (lib *SpAdmin) getAllPolicy(userIdOrRoleName string, filterMethods []string) [][]string {
-	policyList := make([][]string, (len(lib.modelTables)+len(lib.sitePolicy))*len(lib.defaultMethods))
+	policyList := make([][]string, 0, (len(lib.modelTables)+len(lib.sitePolicy))*len(lib.defaultMethods))
 	var d []string
 	for _, v := range lib.sitePolicy {
 		d = append(d, v)
@@ -275,7 +275,8 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 	var p PagResult
 	pageSize := lib.config.PageSize
 	start := (page - 1) * pageSize
-	end := page * pageSize
+	offset := pageSize
+	end := page*pageSize + offset
 	// 先获取总数量
 	allCount, err := lib.config.Engine.Table(routerName).Count()
 	if err != nil {
@@ -391,7 +392,7 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 				d := ctx.PostValue(column.Name)
 				newInstance.Elem().FieldByName(column.FieldName).SetString(d)
 				continue
-			case "int", "int8", "int16", "int32", "time.Duration":
+			case "int", "int8", "int16", "int32", "int64", "time.Duration":
 				d, err := ctx.PostValueInt(column.Name)
 				if err != nil {
 					ctx.StatusCode(iris.StatusBadRequest)
@@ -402,7 +403,7 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 				}
 				newInstance.Elem().FieldByName(column.FieldName).SetInt(int64(d))
 				continue
-			case "uint", "uint8", "uint16", "uint32":
+			case "uint", "uint8", "uint16", "uint32", "uint64":
 				d, err := ctx.PostValueInt(column.Name)
 				if err != nil {
 					ctx.StatusCode(iris.StatusBadRequest)
@@ -425,18 +426,32 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 				newInstance.Elem().FieldByName(column.FieldName).SetBool(d)
 				continue
 			case "time", "time.Time":
-				// 需要传入的是unix时间
-				d, err := ctx.PostValueInt(column.Name)
-				if err != nil {
+				d := ctx.PostValue(column.Name)
+				if len(d) < 1 {
 					ctx.StatusCode(iris.StatusBadRequest)
 					_, _ = ctx.JSON(iris.Map{
-						"detail": err.Error(),
+						"detail": "get time fail",
 					})
 					return reflect.Value{}, err
 				}
-				// 这里需要转换成时间
-				tt := time.Unix(int64(d), 0)
-				newInstance.Elem().FieldByName(column.FieldName).Set(reflect.ValueOf(tt))
+				var tt reflect.Value
+				// 判断是否是字符串
+				if IsNum(d) {
+					// 这里需要转换成时间
+					d, err := strconv.ParseInt(d, 10, 64)
+					if err != nil {
+						return reflect.Value{}, err
+					}
+					tt = reflect.ValueOf(time.Unix(d, 0))
+				} else {
+					formatTime, err := time.ParseInLocation("2006-01-02 15:04:05", d, time.Local)
+					if err != nil {
+						return reflect.Value{}, err
+					}
+					tt = reflect.ValueOf(formatTime)
+				}
+
+				newInstance.Elem().FieldByName(column.FieldName).Set(tt)
 				continue
 			}
 		}

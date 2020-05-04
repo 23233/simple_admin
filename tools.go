@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"math/rand"
+	"strconv"
 )
 
 func RandStringBytes(n int) string {
@@ -26,7 +27,7 @@ func StringsContains(a []string, x string) bool {
 }
 
 func GetMapValues(a map[string]string) []string {
-	d := make([]string, len(a))
+	d := make([]string, 0, len(a))
 	for _, v := range a {
 		d = append(d, v)
 	}
@@ -34,5 +35,10 @@ func GetMapValues(a map[string]string) []string {
 }
 
 func MsgLog(msg string) error {
-	return errors.New(fmt.Sprintf("%s", msg))
+	return errors.Wrap(errors.New(fmt.Sprintf("%s", msg)), "simple_admin")
+}
+
+func IsNum(s string) bool {
+	_, err := strconv.ParseFloat(s, 64)
+	return err == nil
 }
