@@ -14,6 +14,13 @@ type UserLoginReq struct {
 }
 
 type UserLoginResp struct {
-	Token string   `json:"token"`
-	Roles []string `json:"roles"`
+	Token    string   `json:"token"`
+	UserName string   `json:"user_name"`
+	Roles    []string `json:"roles"`
+}
+
+type GetCurrentUserResp struct {
+	Name   string `json:"name"`
+	Avatar string `json:"avatar"`
+	UserId string `json:"userid"`
 }

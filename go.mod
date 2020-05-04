@@ -13,6 +13,7 @@ require (
 	github.com/imdario/mergo v0.3.9
 	github.com/iris-contrib/middleware/jwt v0.0.0-20191219204441-78279b78a367
 	github.com/kataras/iris/v12 v12.1.8
+	github.com/pkg/errors v0.8.1
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	xorm.io/xorm v1.0.1
 )

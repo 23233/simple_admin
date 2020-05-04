@@ -1,11 +1,11 @@
 package simple_admin
 
 import (
-	"errors"
 	"fmt"
 	"github.com/casbin/casbin/v2"
 	"github.com/imdario/mergo"
 	"github.com/kataras/iris/v12"
+	"github.com/pkg/errors"
 	"log"
 	"reflect"
 	"strconv"
@@ -35,6 +35,10 @@ type PagResult struct {
 	Page     int                 `json:"page"`
 	PageSize int                 `json:"page_size"`
 	Data     []map[string]string `json:"data"`
+}
+
+func (lib *SpAdmin) errorLog(err error, msg string) error {
+	return errors.Wrap(err, msg)
 }
 
 func New(c Config) (*SpAdmin, error) {
@@ -110,7 +114,10 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	router.Post("/login", Login)
 	// 注册
 	router.Post("/reg", Reg)
+	router.Get("/config", Configuration)
 	c := router.Party("/v", CustomJwt.Serve, TokenToUserUidMiddleware)
+	// 获取当前用户
+	c.Get("/get_current_user", GetCurrentUser)
 	// 获取所有表
 	c.Get("/get_routers", GetRouters)
 	// 获取单表列信息
@@ -122,8 +129,8 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	c.Post("/{routerName:string}", PolicyValidMiddleware, AddRouterData)
 	// 修改
 	c.Put("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, EditRouterData)
-	// 删除
-	c.Delete("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, RemoveRouterData)
+	// 删除 delete模式在某些匹配时候有问题
+	c.Post("/{routerName:string}/delete", PolicyValidMiddleware, RemoveRouterData)
 }
 
 // 权限变更
@@ -131,17 +138,17 @@ func (lib *SpAdmin) policyChange(userId, path, methods string, add bool) error {
 	if add {
 		// 先判断权限是否存在
 		if lib.casbinEnforcer.HasPolicy(userId, path, methods) {
-			return errors.New("policy has exists")
+			return MsgLog("policy has exists")
 		}
 		success, err := lib.casbinEnforcer.AddPolicy(userId, path, methods)
 		if err != nil || success == false {
-			return errors.New(fmt.Sprintf("add policy fail -> %s %s %s err:%s", userId, path, methods, err))
+			return MsgLog(fmt.Sprintf("add policy fail -> %s %s %s err:%s", userId, path, methods, err))
 		}
 		return nil
 	}
 	success, err := lib.casbinEnforcer.RemovePolicy(userId, path, methods)
 	if err != nil || success == false {
-		return errors.New(fmt.Sprintf("remove policy fail -> %s %s %s err:%s", userId, path, methods, err))
+		return MsgLog(fmt.Sprintf("remove policy fail -> %s %s %s err:%s", userId, path, methods, err))
 	}
 	return nil
 
@@ -172,7 +179,7 @@ func (lib *SpAdmin) getAllPolicy(userIdOrRoleName string, filterMethods []string
 func (lib *SpAdmin) addUser(userName, password string, role string) (int64, error) {
 	values := GetMapValues(lib.defaultRole)
 	if StringsContains(values, role) == false {
-		return 0, errors.New(fmt.Sprintf("role params not in %s", values))
+		return 0, MsgLog(fmt.Sprintf("role params not in %s", values))
 	}
 	ps, salt := lib.config.passwordSalt(password)
 	// 获取表名
@@ -180,7 +187,7 @@ func (lib *SpAdmin) addUser(userName, password string, role string) (int64, erro
 	// 判断用户是否存在
 	has, err := lib.config.Engine.Table(tableName).Where("user_name = ?", userName).Exist()
 	if has == true {
-		return 0, errors.New("user has exist")
+		return 0, MsgLog("user has exist")
 	}
 	if err != nil {
 		return 0, err
@@ -192,7 +199,7 @@ func (lib *SpAdmin) addUser(userName, password string, role string) (int64, erro
 	}
 	userUid, err := success.LastInsertId()
 	if userUid == 0 || err != nil {
-		return 0, errors.New("insert user fail")
+		return 0, MsgLog("insert user fail")
 	}
 
 	uid := strconv.FormatInt(userUid, 10)
@@ -200,7 +207,7 @@ func (lib *SpAdmin) addUser(userName, password string, role string) (int64, erro
 	// 把用户写入群组
 	stats, err := lib.casbinEnforcer.AddRoleForUser(uid, role)
 	if stats != true || err != nil {
-		return 0, errors.New(fmt.Sprintf("add user to role:%s fail %s", role, err))
+		return 0, MsgLog(fmt.Sprintf("add user to role:%s fail %s", role, err))
 	}
 	return userUid, nil
 }
@@ -214,7 +221,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 			// 来宾只能登录
 			_, err := lib.casbinEnforcer.AddPermissionForUser(role, lib.sitePolicy["login_site"], "POST")
 			if err != nil {
-				return errors.New(fmt.Sprintf("init guest role fail %s", err))
+				return MsgLog(fmt.Sprintf("init guest role fail %s", err))
 			}
 			break
 		case "staff":
@@ -224,7 +231,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 				if rule != nil {
 					_, err := lib.casbinEnforcer.AddPermissionForUser(role, rule[1], rule[2])
 					if err != nil {
-						return errors.New(fmt.Sprintf("init staff role fail %s", err))
+						return MsgLog(fmt.Sprintf("init staff role fail %s", err))
 					}
 				}
 			}
@@ -236,7 +243,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 				if rule != nil {
 					_, err := lib.casbinEnforcer.AddPermissionForUser(role, rule[1], rule[2])
 					if err != nil {
-						return errors.New(fmt.Sprintf("init admin role fail %s", err))
+						return MsgLog(fmt.Sprintf("init admin role fail %s", err))
 					}
 				}
 			}
@@ -244,7 +251,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 			for _, value := range lib.defaultMethods {
 				_, err := lib.casbinEnforcer.AddPermissionForUser(role, lib.sitePolicy["user_manage"], value)
 				if err != nil {
-					return errors.New(fmt.Sprintf("init admin user manage fail  %s", err))
+					return MsgLog(fmt.Sprintf("init admin user manage fail  %s", err))
 				}
 			}
 
@@ -254,11 +261,11 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 	// 创建角色继承
 	_, err := lib.casbinEnforcer.AddRoleForUser(lib.defaultRole["admin"], lib.defaultRole["staff"])
 	if err != nil {
-		return errors.New(fmt.Sprintf("role admin has stfall fail  %s", err))
+		return MsgLog(fmt.Sprintf("role admin has stfall fail  %s", err))
 	}
 	_, err = lib.casbinEnforcer.AddRoleForUser(lib.defaultRole["staff"], lib.defaultRole["guest"])
 	if err != nil {
-		return errors.New(fmt.Sprintf("role staff has guest fail %s", err))
+		return MsgLog(fmt.Sprintf("role staff has guest fail %s", err))
 	}
 	return nil
 }
@@ -267,7 +274,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 	var p PagResult
 	pageSize := lib.config.PageSize
-	start := page - 1*pageSize
+	start := (page - 1) * pageSize
 	end := page * pageSize
 	// 先获取总数量
 	allCount, err := lib.config.Engine.Table(routerName).Count()
@@ -296,7 +303,7 @@ func (lib *SpAdmin) SingleData(routerName string, id uint64) (map[string]string,
 		return valuesMap, err
 	}
 	if has == false {
-		return valuesMap, errors.New("not find data")
+		return valuesMap, MsgLog("not find data")
 	}
 	return valuesMap, nil
 }
@@ -305,7 +312,7 @@ func (lib *SpAdmin) SingleData(routerName string, id uint64) (map[string]string,
 func (lib *SpAdmin) addData(routerName string, data reflect.Value) error {
 	uid, err := lib.config.Engine.Table(routerName).InsertOne(data.Interface())
 	if uid == 0 || err != nil {
-		return errors.New(fmt.Sprintf("insert data fail %s", err))
+		return MsgLog(fmt.Sprintf("insert data fail %s", err))
 	}
 	// 获取
 	return nil
@@ -317,7 +324,7 @@ func (lib *SpAdmin) editData(routerName string, id uint64, data reflect.Value) e
 	// 所以这里启动全量更新 传入数据必须为全量
 	uid, err := lib.config.Engine.Table(routerName).ID(id).AllCols().Update(data.Interface())
 	if uid == 0 || err != nil {
-		return errors.New(fmt.Sprintf("edit data fail %s id:%d router:%s", err, id, routerName))
+		return MsgLog(fmt.Sprintf("edit data fail %s id:%d router:%s", err, id, routerName))
 	}
 	// 获取
 	return nil
@@ -332,7 +339,21 @@ func (lib *SpAdmin) deleteData(routerName string, id uint64) error {
 	obj, err := affected.RowsAffected()
 
 	if obj < 1 {
-		return errors.New("delete data fail ")
+		return MsgLog("delete data fail ")
+	}
+	return nil
+}
+
+// 批量数据删除
+func (lib *SpAdmin) bulkDeleteData(routerName string, ids string) error {
+	affected, err := lib.config.Engine.Exec(fmt.Sprintf("delete from %s where id in (%s)", routerName, ids))
+	if err != nil {
+		return err
+	}
+	obj, err := affected.RowsAffected()
+
+	if obj < 1 {
+		return MsgLog("delete data fail ")
 	}
 	return nil
 }
