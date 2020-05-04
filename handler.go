@@ -11,12 +11,24 @@ func Index(ctx iris.Context) {
 	_ = ctx.View("index.html")
 }
 
+// 配置文件
+func Configuration(ctx iris.Context) {
+	var resp validator.ConfigResp
+	resp.Name = NowSpAdmin.config.Name
+	resp.Prefix = NowSpAdmin.config.Prefix
+	resp.UserModelName = NowSpAdmin.config.UserModelSpecialUniqueName
+	_, _ = ctx.JSON(resp)
+}
+
 // 登录
 func Login(ctx iris.Context) {
 	var req validator.UserLoginReq
 	// 引入数据
 	if err := ctx.ReadJSON(&req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
 		return
 	}
 	// 基础验证
@@ -66,9 +78,10 @@ func Login(ctx iris.Context) {
 		return
 	}
 	// 生成jwt
-	jwt := GenJwtToken(valuesMap["id"])
+	jwt := GenJwtToken(valuesMap["id"], req.UserName)
 	var resp validator.UserLoginResp
 	resp.Token = jwt
+	resp.UserName = req.UserName
 	resp.Roles = roles
 	_, _ = ctx.JSON(resp)
 }
@@ -79,6 +92,9 @@ func Reg(ctx iris.Context) {
 	// 引入数据
 	if err := ctx.ReadJSON(&req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
 		return
 	}
 	// 基础验证
@@ -99,10 +115,22 @@ func Reg(ctx iris.Context) {
 		return
 	}
 	// 生成jwt
-	jwt := GenJwtToken(strconv.FormatInt(aff, 10))
+	jwt := GenJwtToken(strconv.FormatInt(aff, 10), req.UserName)
 	var resp validator.UserLoginResp
 	resp.Token = jwt
+	resp.UserName = req.UserName
 	resp.Roles = []string{"guest"}
+	_, _ = ctx.JSON(resp)
+}
+
+// 获取当前用户
+func GetCurrentUser(ctx iris.Context) {
+	un := ctx.Values().Get("un").(string)
+	uid := ctx.Values().Get("uid").(string)
+	var resp validator.GetCurrentUserResp
+	resp.Name = un
+	resp.UserId = uid
+	resp.Avatar = "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png"
 	_, _ = ctx.JSON(resp)
 }
 
@@ -122,7 +150,7 @@ func GetRouters(ctx iris.Context) {
 	for _, rule := range rules {
 		if rule[2] == NowSpAdmin.defaultMethods["GET"] && rule[1] != NowSpAdmin.sitePolicy["login_site"] {
 			if rule[1] == NowSpAdmin.sitePolicy["user_manage"] {
-				result["simple_admin_user_model"] = rule[1]
+				result[NowSpAdmin.config.UserModelSpecialUniqueName] = rule[1]
 			} else {
 				result[rule[1]] = rule[1]
 			}
@@ -261,19 +289,28 @@ func EditRouterData(ctx iris.Context) {
 	_, _ = ctx.JSON(iris.Map{})
 }
 
-// 删除数据
+// 删除数据 -> 可以批量
 func RemoveRouterData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
-	id, err := ctx.Params().GetUint64("id")
-	if err != nil {
+	var req validator.DeleteReq
+	// 引入数据
+	if err := ctx.ReadJSON(&req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": err.Error(),
 		})
 		return
 	}
-	// 直接进行删除
-	err = NowSpAdmin.deleteData(routerName, id)
+	// 基础验证
+	if err := validator.GlobalValidator.Check(req); err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	// 进行批量删除
+	err := NowSpAdmin.bulkDeleteData(routerName, req.Ids)
 	if err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
@@ -282,6 +319,7 @@ func RemoveRouterData(ctx iris.Context) {
 		return
 	}
 	_, _ = ctx.JSON(iris.Map{})
+
 }
 
 // 权限Middleware

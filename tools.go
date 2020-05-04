@@ -1,6 +1,10 @@
 package simple_admin
 
-import "math/rand"
+import (
+	"fmt"
+	"github.com/pkg/errors"
+	"math/rand"
+)
 
 func RandStringBytes(n int) string {
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -27,4 +31,8 @@ func GetMapValues(a map[string]string) []string {
 		d = append(d, v)
 	}
 	return d
+}
+
+func MsgLog(msg string) error {
+	return errors.New(fmt.Sprintf("%s", msg))
 }

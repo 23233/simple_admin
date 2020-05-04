@@ -3,7 +3,6 @@ package simple_admin
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -15,17 +14,18 @@ import (
 )
 
 type Config struct {
-	Name              string            // 后台显示名称
-	Engine            *xorm.Engine      // xorm engine实例
-	App               *iris.Application // iris实例
-	ModelList         []interface{}     // 模型列表
-	UserModel         interface{}       // 用户模型
-	RunSync           bool              // 是否进行sync
-	EnableReg         bool              // 是否启用注册
-	PageSize          int
-	Prefix            string
-	InitAdminUserName string
-	InitAdminPassword string
+	Name                       string            // 后台显示名称
+	Engine                     *xorm.Engine      // xorm engine实例
+	App                        *iris.Application // iris实例
+	ModelList                  []interface{}     // 模型列表
+	UserModel                  interface{}       // 用户模型
+	RunSync                    bool              // 是否进行sync
+	EnableReg                  bool              // 是否启用注册
+	PageSize                   int
+	Prefix                     string
+	InitAdminUserName          string
+	InitAdminPassword          string
+	UserModelSpecialUniqueName string
 }
 
 type UserModel struct {
@@ -38,36 +38,37 @@ type UserModel struct {
 // 默认配置文件
 func (config *Config) init() Config {
 	return Config{
-		Name:              "simpleAdmin",
-		UserModel:         new(UserModel),
-		RunSync:           true,
-		EnableReg:         true,
-		PageSize:          20,
-		Prefix:            "/admin",
-		InitAdminUserName: "admin",
-		InitAdminPassword: "iris_best",
+		Name:                       "simpleAdmin",
+		UserModel:                  new(UserModel),
+		RunSync:                    true,
+		EnableReg:                  true,
+		PageSize:                   20,
+		Prefix:                     "/admin",
+		InitAdminUserName:          "admin",
+		InitAdminPassword:          "iris_best",
+		UserModelSpecialUniqueName: "simple_admin_user_model",
 	}
 }
 
 // 验证配置文件
 func (config *Config) valid() error {
 	if config.Engine == nil {
-		return errors.New("please check config , engine is empty")
+		return MsgLog("please check config , engine is empty")
 	}
 	if config.App == nil {
-		return errors.New("please check config , app(iris instance application)  is empty")
+		return MsgLog("please check config , app(iris instance application)  is empty")
 	}
 	if reflect.DeepEqual(config.UserModel, new(UserModel)) == false {
 		log.Printf("custom user model warning : 1.must has username password salt id fields 2.username must be unique 3.id must be autoincr fields")
 	}
 	if len(config.ModelList) < 1 {
-		return errors.New("please check config , modelList is empty ")
+		return MsgLog("please check config , modelList is empty ")
 	}
 	if len(config.Prefix) < 1 {
-		return errors.New("please check config , prefix is required")
+		return MsgLog("please check config , prefix is required")
 	}
 	if config.Prefix[0] != '/' {
-		return errors.New("please check config , prefix must start with / ")
+		return MsgLog("please check config , prefix must start with / ")
 	}
 	return nil
 }
@@ -150,7 +151,7 @@ func (config *Config) tableNameToFieldAndTypes(tableName string) (map[string]str
 			return result, nil
 		}
 	}
-	return nil, errors.New(fmt.Sprintf("not find this table %s", tableName))
+	return nil, MsgLog(fmt.Sprintf("not find this table %s", tableName))
 }
 
 // 通过模型名获取实例
@@ -160,7 +161,7 @@ func (config *Config) tableNameGetModel(tableName string) (interface{}, error) {
 			return item, nil
 		}
 	}
-	return nil, errors.New("not find table")
+	return nil, MsgLog("not find table")
 }
 
 // 获取用户表
