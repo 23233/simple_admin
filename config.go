@@ -125,7 +125,7 @@ func (config *Config) runSync() error {
 
 // 模型表名序列生成
 func (config *Config) generateTables() []string {
-	tables := make([]string, len(config.ModelList))
+	tables := make([]string, 0, len(config.ModelList))
 	for _, item := range config.ModelList {
 		tableName := config.Engine.TableName(item)
 		tables = append(tables, tableName)
@@ -146,12 +146,48 @@ func (config *Config) tableNameToFieldAndTypes(tableName string) (map[string]str
 			for i := 0; i < fieldNum; i++ {
 				f := t.Field(i)
 				n := t.Field(i).Name
+				//// 判断是否为自增主键
+				//x := f.Tag.Get("xorm")
+				//if n == "Id" && len(x) < 1 || strings.Index(x, "autoincr") >= 0 {
+				//	result["autoincr"] = n
+				//}
 				result[n] = f.Type.String()
 			}
 			return result, nil
 		}
 	}
 	return nil, MsgLog(fmt.Sprintf("not find this table %s", tableName))
+}
+
+// 通过模型反射模型信息
+func (config *Config) tableNameReflectFieldsAndTypes(tableName string) (map[string]string, error) {
+	for _, item := range config.ModelList {
+		if config.Engine.TableName(item) == tableName {
+			modelInfo, err := NowSpAdmin.config.Engine.TableInfo(item)
+			if err != nil {
+				return nil, err
+			}
+			result := make(map[string]string, len(modelInfo.ColumnsSeq()))
+			t := reflect.TypeOf(item)
+			if t.Kind() == reflect.Ptr {
+				t = t.Elem()
+			}
+			for _, column := range modelInfo.Columns() {
+				if column.Name == modelInfo.AutoIncrement {
+					result["autoincr"] = column.Name
+					continue
+				}
+				f, has := t.FieldByName(column.FieldName)
+				if has == false {
+					continue
+				}
+				result[column.Name] = f.Type.String()
+			}
+			return result, nil
+		}
+	}
+	return nil, MsgLog(fmt.Sprintf("not find this table %s", tableName))
+
 }
 
 // 通过模型名获取实例

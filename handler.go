@@ -137,22 +137,24 @@ func GetCurrentUser(ctx iris.Context) {
 // 获取所有表名
 func GetRouters(ctx iris.Context) {
 	uid := ctx.Values().Get("uid").(string)
-	// 筛选当前用户可用的权限列表
-	rules, err := NowSpAdmin.casbinEnforcer.GetImplicitPermissionsForUser(uid)
-	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
 	result := make(map[string]string, 0)
-	for _, rule := range rules {
-		if rule[2] == NowSpAdmin.defaultMethods["GET"] && rule[1] != NowSpAdmin.sitePolicy["login_site"] {
-			if rule[1] == NowSpAdmin.sitePolicy["user_manage"] {
-				result[NowSpAdmin.config.UserModelSpecialUniqueName] = rule[1]
+	// 获取所有表名
+	for _, table := range NowSpAdmin.modelTables {
+		// 判断是否有读取权限
+		has, err := NowSpAdmin.casbinEnforcer.Enforce(uid, table, NowSpAdmin.defaultMethods["GET"])
+		if err != nil {
+			ctx.StatusCode(iris.StatusBadRequest)
+			_, _ = ctx.JSON(iris.Map{
+				"detail": err.Error(),
+			})
+			return
+		}
+		if has == true {
+			// 判断是否是用户模型
+			if table == NowSpAdmin.sitePolicy["user_manage"] {
+				result[NowSpAdmin.config.UserModelSpecialUniqueName] = table
 			} else {
-				result[rule[1]] = rule[1]
+				result[table] = table
 			}
 		}
 	}
@@ -162,25 +164,16 @@ func GetRouters(ctx iris.Context) {
 // 获取单个表的列信息
 func GetRouterFields(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
-	// todo:是否需要进行权限判断 待定?
-	// 先确定有没有这个表
-	if StringsContains(NowSpAdmin.modelTables, routerName) {
-		fields, err := NowSpAdmin.config.tableNameToFieldAndTypes(routerName)
-		if err != nil {
-			ctx.StatusCode(iris.StatusBadRequest)
-			_, _ = ctx.JSON(iris.Map{
-				"detail": err.Error(),
-			})
-			return
-		}
-		_, _ = ctx.JSON(fields)
-	} else {
+
+	fields, err := NowSpAdmin.config.tableNameReflectFieldsAndTypes(routerName)
+	if err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
-			"detail": "params error ",
+			"detail": err.Error(),
 		})
 		return
 	}
+	_, _ = ctx.JSON(fields)
 }
 
 // 获取表数据
@@ -336,7 +329,7 @@ func PolicyValidMiddleware(ctx iris.Context) {
 		return
 	}
 	if has == false {
-		ctx.StatusCode(iris.StatusForbidden)
+		ctx.StatusCode(iris.StatusUnauthorized)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": "no permission to proceed",
 		})
