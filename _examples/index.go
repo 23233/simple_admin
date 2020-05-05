@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/23233/simple_admin/v1"
-	"github.com/23233/simple_admin/v1/_examples/database"
+	"github.com/23233/simple_admin"
+	"github.com/23233/simple_admin/_examples/database"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/middleware/logger"
 	"github.com/kataras/iris/v12/middleware/recover"
