@@ -8,10 +8,12 @@ import (
 )
 
 func Index(ctx iris.Context) {
+	rs := []rune(NowSpAdmin.config.Prefix)
+	ctx.ViewData("prefix", string(rs[1:]))
 	_ = ctx.View("index.html")
 }
 
-// 配置文件
+// 获取配置信息
 func Configuration(ctx iris.Context) {
 	var resp validator.ConfigResp
 	resp.Name = NowSpAdmin.config.Name
@@ -315,6 +317,99 @@ func RemoveRouterData(ctx iris.Context) {
 
 }
 
+// 变更用户密码
+func ChangeUserPassword(ctx iris.Context) {
+	var req validator.UserChangePasswordReq
+	// 引入数据
+	if err := ctx.ReadJSON(&req); err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	// 基础验证
+	if err := validator.GlobalValidator.Check(req); err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	uid := ctx.Values().Get("uid").(string)
+	// 判断当前用户是否是admin权限
+	roles, err := NowSpAdmin.casbinEnforcer.GetImplicitRolesForUser(uid)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	// admin可以变更所有 否则只能变更自己的密码
+	if StringsContains(roles, NowSpAdmin.defaultRole["admin"]) == false {
+		un := ctx.Values().Get("un").(string)
+		if un != req.UserName {
+			// 变更
+			ctx.StatusCode(iris.StatusBadRequest)
+			_, _ = ctx.JSON(iris.Map{
+				"detail": "no permission to proceed",
+			})
+			return
+		}
+	}
+	// 直接变更
+	err = NowSpAdmin.changeUserPassword(req.Id, req.Password)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 变更用户群组
+func ChangeUserRoles(ctx iris.Context) {
+	var req validator.UserChangeRolesReq
+	var err error
+	// 引入数据
+	if err = ctx.ReadJSON(&req); err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	// 基础验证
+	if err = validator.GlobalValidator.Check(req); err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	if req.Add {
+		_, err = NowSpAdmin.casbinEnforcer.AddRoleForUser(strconv.FormatUint(req.Id, 10), req.Role)
+	} else {
+		_, err = NowSpAdmin.casbinEnforcer.DeleteRoleForUser(strconv.FormatUint(req.Id, 10), req.Role)
+	}
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+//// todo: 变更用户权限
+//func ChangeUserPolicy(ctx iris.Context) {
+//
+//}
+
 // 权限Middleware
 func PolicyValidMiddleware(ctx iris.Context) {
 	userUid := ctx.Values().Get("uid").(string)
@@ -329,6 +424,28 @@ func PolicyValidMiddleware(ctx iris.Context) {
 		return
 	}
 	if has == false {
+		ctx.StatusCode(iris.StatusUnauthorized)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": "no permission to proceed",
+		})
+		return
+	}
+	ctx.Next()
+}
+
+// 必须admin权限middleware
+func PolicyRequireAdminMiddleware(ctx iris.Context) {
+	uid := ctx.Values().Get("uid").(string)
+	// 判断当前用户是否是admin权限
+	roles, err := NowSpAdmin.casbinEnforcer.GetImplicitRolesForUser(uid)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+	if StringsContains(roles, NowSpAdmin.defaultRole["admin"]) == false {
 		ctx.StatusCode(iris.StatusUnauthorized)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": "no permission to proceed",

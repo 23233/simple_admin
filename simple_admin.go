@@ -9,6 +9,7 @@ import (
 	"log"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -109,7 +110,7 @@ func New(c Config) (*SpAdmin, error) {
 // 在这里注册路由
 func (lib *SpAdmin) Router(router iris.Party) {
 	// 首页
-	//router.Get("/", Index)
+	router.Get("/", Index)
 	// 登录
 	router.Post("/login", Login)
 	// 注册
@@ -118,10 +119,12 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	c := router.Party("/v", CustomJwt.Serve, TokenToUserUidMiddleware)
 	// 获取当前用户
 	c.Get("/get_current_user", GetCurrentUser)
+	// 变更用户密码
+	c.Post("/change_password", ChangeUserPassword)
 	// 获取所有表
 	c.Get("/get_routers", GetRouters)
 	// 获取单表列信息
-	c.Get("/get_routers/{routerName:string}", PolicyValidMiddleware, GetRouterFields)
+	c.Get("/get_routers_fields/{routerName:string}", PolicyValidMiddleware, GetRouterFields)
 	// 查看
 	c.Get("/{routerName:string}", PolicyValidMiddleware, GetRouterData)
 	c.Get("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, GetRouterSingleData)
@@ -131,6 +134,10 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	c.Put("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, EditRouterData)
 	// 删除 delete模式在某些匹配时候有问题
 	c.Post("/{routerName:string}/delete", PolicyValidMiddleware, RemoveRouterData)
+
+	// 权限相关
+	c.Post("/change_user_role", PolicyRequireAdminMiddleware, ChangeUserRoles)
+
 }
 
 // 权限变更
@@ -288,6 +295,28 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 		return p, err
 	}
 
+	// 如果是用户表 还需要返回当前的权限
+	// 只有admin 才能请求到用户表
+	if routerName == lib.config.getUserModelTableName() {
+		model, _ := lib.config.tableNameGetModel(routerName)
+		modelInfo, err := lib.config.Engine.TableInfo(model)
+		if err != nil {
+			return p, err
+		}
+		for i, d := range data {
+			for k, v := range d {
+				if k == modelInfo.AutoIncrement {
+					roles, err := lib.casbinEnforcer.GetImplicitRolesForUser(v)
+					if err != nil {
+						return p, err
+					}
+					data[i]["roles"] = strings.Join(roles, ",")
+					break
+				}
+			}
+		}
+	}
+
 	p.PageSize = pageSize
 	p.Page = page
 	p.All = allCount
@@ -395,10 +424,6 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 			case "int", "int8", "int16", "int32", "int64", "time.Duration":
 				d, err := ctx.PostValueInt(column.Name)
 				if err != nil {
-					ctx.StatusCode(iris.StatusBadRequest)
-					_, _ = ctx.JSON(iris.Map{
-						"detail": err.Error(),
-					})
 					return reflect.Value{}, err
 				}
 				newInstance.Elem().FieldByName(column.FieldName).SetInt(int64(d))
@@ -414,13 +439,16 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 				}
 				newInstance.Elem().FieldByName(column.FieldName).SetUint(uint64(d))
 				continue
+			case "float32", "float64":
+				d, err := ctx.PostValueFloat64(column.Name)
+				if err != nil {
+					return reflect.Value{}, err
+				}
+				newInstance.Elem().FieldByName(column.FieldName).SetFloat(d)
+				continue
 			case "bool":
 				d, err := ctx.PostValueBool(column.Name)
 				if err != nil {
-					ctx.StatusCode(iris.StatusBadRequest)
-					_, _ = ctx.JSON(iris.Map{
-						"detail": err.Error(),
-					})
 					return reflect.Value{}, err
 				}
 				newInstance.Elem().FieldByName(column.FieldName).SetBool(d)
@@ -428,10 +456,6 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 			case "time", "time.Time":
 				d := ctx.PostValue(column.Name)
 				if len(d) < 1 {
-					ctx.StatusCode(iris.StatusBadRequest)
-					_, _ = ctx.JSON(iris.Map{
-						"detail": "get time fail",
-					})
 					return reflect.Value{}, err
 				}
 				var tt reflect.Value
@@ -459,6 +483,27 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 	return newInstance, nil
 }
 
+// 变更用户密码
+func (lib *SpAdmin) changeUserPassword(id uint64, password string) error {
+	ps, salt := lib.config.passwordSalt(password)
+	// 获取表名
+	routerName := lib.config.getUserModelTableName()
+	model, err := lib.config.tableNameGetModel(routerName)
+	t := reflect.TypeOf(model)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	newInstance := reflect.New(t)
+	newInstance.Elem().FieldByName("Password").SetString(ps)
+	newInstance.Elem().FieldByName("Salt").SetString(salt)
+	// 直接变更
+	uid, err := lib.config.Engine.Table(routerName).ID(id).Cols("password", "salt").Update(newInstance.Interface())
+	if uid == 0 || err != nil {
+		return MsgLog(fmt.Sprintf("edit data fail %s id:%d router:%s", err, id, routerName))
+	}
+	return nil
+}
+
 // 注册视图
 func (lib *SpAdmin) Register() {
 	// $ go get -u github.com/go-bindata/go-bindata/...
@@ -466,13 +511,14 @@ func (lib *SpAdmin) Register() {
 	// $ go build
 	app := lib.config.App
 	app.RegisterView(iris.HTML("./templates", ".html").Binary(Asset, AssetNames))
-	app.HandleDir(lib.config.Prefix, "./templates", iris.DirOptions{
+	app.HandleDir("/simple_admin_static", "./templates", iris.DirOptions{
 		Asset:      Asset,
 		AssetInfo:  AssetInfo,
 		AssetNames: AssetNames,
-		IndexName:  "index.html", // default.
+		//IndexName:  "index.html", // default.
+		Gzip: true,
 		// If you want to show a list of embedded files when inside a directory without an index file:
-		// ShowList:   true,
+		//ShowList: true,
 		// DirList: func(ctx iris.Context, dirName string, f http.File) error {
 		// 	// [Optional, custom code to show the html list].
 		// }
