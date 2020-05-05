@@ -20,7 +20,6 @@ type Config struct {
 	ModelList                  []interface{}     // 模型列表
 	UserModel                  interface{}       // 用户模型
 	RunSync                    bool              // 是否进行sync
-	EnableReg                  bool              // 是否启用注册
 	PageSize                   int
 	Prefix                     string
 	InitAdminUserName          string
@@ -41,7 +40,6 @@ func (config *Config) init() Config {
 		Name:                       "simpleAdmin",
 		UserModel:                  new(UserModel),
 		RunSync:                    true,
-		EnableReg:                  true,
 		PageSize:                   20,
 		Prefix:                     "/admin",
 		InitAdminUserName:          "admin",

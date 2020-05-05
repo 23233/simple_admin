@@ -2,7 +2,7 @@ package simple_admin_test
 
 import (
 	"github.com/23233/simple_admin/v1"
-	"github.com/23233/simple_admin/v1/database"
+	"github.com/23233/simple_admin/v1/_examples/database"
 	"github.com/kataras/iris/v12"
 	"testing"
 )
@@ -44,7 +44,6 @@ func TestNew(t *testing.T) {
 		Engine:    engine,
 		ModelList: modelList,
 		RunSync:   true,
-		EnableReg: false,
 	})
 	if err != nil {
 		t.Error(err)
