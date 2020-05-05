@@ -1,4 +1,4 @@
-module github.com/23233/simple_admin/v1
+module github.com/23233/simple_admin
 
 go 1.14
 
