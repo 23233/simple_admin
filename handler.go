@@ -2,7 +2,7 @@ package simple_admin
 
 import (
 	"fmt"
-	"github.com/23233/simple_admin/v1/validator"
+	"github.com/23233/simple_admin/validator"
 	"github.com/kataras/iris/v12"
 	"strconv"
 )
