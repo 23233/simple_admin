@@ -25,6 +25,10 @@ Install
 ```
 go get https://github.com/23233/simple_admin
 ```
+___
+Examples ->  [https://github.com/23233/simple_admin/tree/master/_examples](https://github.com/23233/simple_admin/tree/master/_examples)
+
+___
 
 Ready -> Defined you struct
 ```
@@ -61,7 +65,6 @@ _, err := simple_admin.New(simple_admin.Config{
     ModelList: modelList,
     Name:      "app name",
     RunSync:   true, // this is xorm sync2
-    EnableReg: false, // if false web front not use reg 
     Prefix:    "/admin", // path prefix like app.Prefix("/admin")
 })
 ```
