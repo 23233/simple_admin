@@ -10,6 +10,7 @@ import (
 	"github.com/kataras/iris/v12"
 	"log"
 	"reflect"
+	"time"
 	"xorm.io/xorm"
 )
 
@@ -32,6 +33,13 @@ type UserModel struct {
 	UserName string `xorm:"varchar(60) notnull unique index" json:"username"`
 	Password string `xorm:"varchar(100) notnull" json:"password"`
 	Salt     string `xorm:"varchar(40) notnull" json:"salt"`
+}
+
+type structInfo struct {
+	Name     string `json:"name"`
+	Types    string `json:"types"`
+	MapName  string `json:"map_name"`
+	XormTags string `json:"xorm_tags"`
 }
 
 // 默认配置文件
@@ -158,34 +166,65 @@ func (config *Config) tableNameToFieldAndTypes(tableName string) (map[string]str
 }
 
 // 通过模型反射模型信息
-func (config *Config) tableNameReflectFieldsAndTypes(tableName string) (map[string]string, error) {
+func (config *Config) tableNameReflectFieldsAndTypes(tableName string) (TableFieldsResp, error) {
 	for _, item := range config.ModelList {
 		if config.Engine.TableName(item) == tableName {
 			modelInfo, err := NowSpAdmin.config.Engine.TableInfo(item)
 			if err != nil {
-				return nil, err
+				return TableFieldsResp{}, nil
 			}
-			result := make(map[string]string, len(modelInfo.ColumnsSeq()))
-			t := reflect.TypeOf(item)
-			if t.Kind() == reflect.Ptr {
-				t = t.Elem()
-			}
-			for _, column := range modelInfo.Columns() {
-				if column.Name == modelInfo.AutoIncrement {
-					result["autoincr"] = column.Name
-					continue
-				}
-				f, has := t.FieldByName(column.FieldName)
-				if has == false {
-					continue
-				}
-				result[column.Name] = f.Type.String()
-			}
-			return result, nil
+			var resp TableFieldsResp
+			// 获取三要素
+			values := config.tableNameGetNestedStructMaps(reflect.TypeOf(item))
+			resp.Fields = values
+			resp.Autoincr = modelInfo.AutoIncrement
+			resp.Version = modelInfo.Version
+			resp.Deleted = modelInfo.Deleted
+			resp.Updated = modelInfo.Updated
+			return resp, nil
 		}
 	}
-	return nil, MsgLog(fmt.Sprintf("not find this table %s", tableName))
+	return TableFieldsResp{}, MsgLog(fmt.Sprintf("not find this table %s", tableName))
 
+}
+
+// 通过模型名获取所有列信息 三要素 名称 类型 xorm tag
+func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo {
+	if r.Kind() == reflect.Ptr {
+		r = r.Elem()
+	}
+	if r.Kind() != reflect.Struct {
+		return nil
+	}
+	v := reflect.New(r).Elem()
+	result := make([]structInfo, 0)
+	for i := 0; i < r.NumField(); i++ {
+		field := r.Field(i)
+		v := reflect.Indirect(v).FieldByName(field.Name)
+		fieldValue := v.Interface()
+		var d structInfo
+
+		switch fieldValue.(type) {
+		case time.Time, time.Duration:
+			d.Name = field.Name
+			d.Types = field.Type.String()
+			d.XormTags = field.Tag.Get("xorm")
+			d.MapName = config.Engine.GetColumnMapper().Obj2Table(field.Name)
+			result = append(result, d)
+			continue
+		}
+		if field.Type.Kind() == reflect.Struct {
+			values := config.tableNameGetNestedStructMaps(field.Type)
+			result = append(result, values...)
+			continue
+		}
+		d.Name = field.Name
+		d.Types = field.Type.String()
+		d.MapName = config.Engine.GetColumnMapper().Obj2Table(field.Name)
+		d.XormTags = field.Tag.Get("xorm")
+		result = append(result, d)
+	}
+	return result
 }
 
 // 通过模型名获取实例

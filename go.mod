@@ -11,6 +11,7 @@ require (
 	github.com/go-playground/validator/v10 v10.2.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/imdario/mergo v0.3.9
+	github.com/iris-contrib/go.uuid v2.0.0+incompatible
 	github.com/iris-contrib/middleware/jwt v0.0.0-20191219204441-78279b78a367
 	github.com/kataras/iris/v12 v12.1.8
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible

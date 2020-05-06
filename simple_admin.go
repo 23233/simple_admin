@@ -397,10 +397,7 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 	// 先获取到字段信息
 	model, err := lib.config.tableNameGetModel(routerName)
 	// 拿到字段对应类型
-	fieldTypes, err := lib.config.tableNameToFieldAndTypes(routerName)
-	if err != nil {
-		return reflect.Value{}, err
-	}
+	fieldTypes := lib.config.tableNameGetNestedStructMaps(reflect.TypeOf(model))
 	modelInfo, err := lib.config.Engine.TableInfo(model)
 	if err != nil {
 		return reflect.Value{}, err
@@ -413,69 +410,75 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 
 	for _, column := range modelInfo.Columns() {
 		if column.Name != modelInfo.AutoIncrement {
-			// 判断类型进行赋值
-			f := fieldTypes[column.FieldName]
-			switch f {
-			case "string":
-				d := ctx.PostValue(column.Name)
-				newInstance.Elem().FieldByName(column.FieldName).SetString(d)
-				continue
-			case "int", "int8", "int16", "int32", "int64", "time.Duration":
-				d, err := ctx.PostValueInt(column.Name)
-				if err != nil {
-					return reflect.Value{}, err
-				}
-				newInstance.Elem().FieldByName(column.FieldName).SetInt(int64(d))
-				continue
-			case "uint", "uint8", "uint16", "uint32", "uint64":
-				d, err := ctx.PostValueInt(column.Name)
-				if err != nil {
-					ctx.StatusCode(iris.StatusBadRequest)
-					_, _ = ctx.JSON(iris.Map{
-						"detail": err.Error(),
-					})
-					return reflect.Value{}, err
-				}
-				newInstance.Elem().FieldByName(column.FieldName).SetUint(uint64(d))
-				continue
-			case "float32", "float64":
-				d, err := ctx.PostValueFloat64(column.Name)
-				if err != nil {
-					return reflect.Value{}, err
-				}
-				newInstance.Elem().FieldByName(column.FieldName).SetFloat(d)
-				continue
-			case "bool":
-				d, err := ctx.PostValueBool(column.Name)
-				if err != nil {
-					return reflect.Value{}, err
-				}
-				newInstance.Elem().FieldByName(column.FieldName).SetBool(d)
-				continue
-			case "time", "time.Time":
-				d := ctx.PostValue(column.Name)
-				if len(d) < 1 {
-					return reflect.Value{}, err
-				}
-				var tt reflect.Value
-				// 判断是否是字符串
-				if IsNum(d) {
-					// 这里需要转换成时间
-					d, err := strconv.ParseInt(d, 10, 64)
-					if err != nil {
-						return reflect.Value{}, err
+			// 找到列信息
+			for _, fieldType := range fieldTypes {
+				if fieldType.MapName == column.Name {
+					f := fieldType.Types
+					tags := strings.Split(fieldType.XormTags, " ")
+					if StringsContains(tags, "created") || StringsContains(tags, "updated") || StringsContains(tags, "deleted") {
+						continue
 					}
-					tt = reflect.ValueOf(time.Unix(d, 0))
-				} else {
-					formatTime, err := time.ParseInLocation("2006-01-02 15:04:05", d, time.Local)
-					if err != nil {
-						return reflect.Value{}, err
-					}
-					tt = reflect.ValueOf(formatTime)
-				}
+					switch f {
+					case "string":
+						d := ctx.PostValue(column.Name)
+						newInstance.Elem().FieldByName(fieldType.Name).SetString(d)
+						continue
+					case "int", "int8", "int16", "int32", "int64", "time.Duration":
+						d, err := ctx.PostValueInt(column.Name)
+						if err != nil {
+							return reflect.Value{}, errors.Wrap(err, "find int error")
+						}
+						newInstance.Elem().FieldByName(fieldType.Name).SetInt(int64(d))
+						continue
+					case "uint", "uint8", "uint16", "uint32", "uint64":
+						d, err := ctx.PostValueInt(column.Name)
+						if err != nil {
+							return reflect.Value{}, errors.Wrap(err, "find uint error")
+						}
+						newInstance.Elem().FieldByName(fieldType.Name).SetUint(uint64(d))
+						continue
+					case "float32", "float64":
+						d, err := ctx.PostValueFloat64(column.Name)
+						if err != nil {
+							return reflect.Value{}, errors.Wrap(err, "find float error")
+						}
+						newInstance.Elem().FieldByName(fieldType.Name).SetFloat(d)
+						continue
+					case "bool":
+						d, err := ctx.PostValueBool(column.Name)
+						if err != nil {
+							return reflect.Value{}, errors.Wrap(err, "find bool error")
+						}
+						newInstance.Elem().FieldByName(fieldType.Name).SetBool(d)
+						continue
+					case "time", "time.Time":
+						d := ctx.PostValue(column.Name)
 
-				newInstance.Elem().FieldByName(column.FieldName).Set(tt)
-				continue
+						if len(d) < 1 {
+							return reflect.Value{}, errors.Wrap(err, "find time error")
+						}
+						var tt reflect.Value
+						// 判断是否是字符串
+						if IsNum(d) {
+							// 这里需要转换成时间
+							d, err := strconv.ParseInt(d, 10, 64)
+							if err != nil {
+								return reflect.Value{}, errors.Wrap(err, "time change to int error")
+							}
+							tt = reflect.ValueOf(time.Unix(d, 0))
+						} else {
+							formatTime, err := time.ParseInLocation("2006-01-02 15:04:05", d, time.Local)
+							if err != nil {
+								return reflect.Value{}, errors.Wrap(err, "time parse location error")
+							}
+							tt = reflect.ValueOf(formatTime)
+						}
+
+						newInstance.Elem().FieldByName(fieldType.Name).Set(tt)
+						continue
+					}
+
+				}
 			}
 		}
 	}
@@ -506,11 +509,11 @@ func (lib *SpAdmin) changeUserPassword(id uint64, password string) error {
 // 注册视图
 func (lib *SpAdmin) Register() {
 	// $ go get -u github.com/go-bindata/go-bindata/...
-	// $ go-bindata ./templates/...
+	// $ go-bindata ./simple_admin_templates/...
 	// $ go build
 	app := lib.config.App
-	app.RegisterView(iris.HTML("./templates", ".html").Binary(Asset, AssetNames))
-	app.HandleDir("/simple_admin_static", "./templates", iris.DirOptions{
+	app.RegisterView(iris.HTML("./simple_admin_templates", ".html").Binary(Asset, AssetNames))
+	app.HandleDir("/simple_admin_static", "./simple_admin_templates", iris.DirOptions{
 		Asset:      Asset,
 		AssetInfo:  AssetInfo,
 		AssetNames: AssetNames,
