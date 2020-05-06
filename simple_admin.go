@@ -134,7 +134,6 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	c.Put("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, EditRouterData)
 	// 删除 delete模式在某些匹配时候有问题
 	c.Post("/{routerName:string}/delete", PolicyValidMiddleware, RemoveRouterData)
-
 	// 权限相关
 	c.Post("/change_user_role", PolicyRequireAdminMiddleware, ChangeUserRoles)
 

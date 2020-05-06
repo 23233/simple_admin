@@ -1,4 +1,4 @@
-package validator
+package simple_admin
 
 // 所有返回必须包裹一层resp
 type GlobalResp struct {

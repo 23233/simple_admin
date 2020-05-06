@@ -1,4 +1,4 @@
-package validator
+package simple_admin
 
 type ConfigResp struct {
 	Name          string `json:"name"`
