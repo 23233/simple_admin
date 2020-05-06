@@ -2,7 +2,6 @@ package simple_admin
 
 import (
 	"fmt"
-	"github.com/23233/simple_admin/validator"
 	"github.com/kataras/iris/v12"
 	"strconv"
 )
@@ -15,7 +14,7 @@ func Index(ctx iris.Context) {
 
 // 获取配置信息
 func Configuration(ctx iris.Context) {
-	var resp validator.ConfigResp
+	var resp ConfigResp
 	resp.Name = NowSpAdmin.config.Name
 	resp.Prefix = NowSpAdmin.config.Prefix
 	resp.UserModelName = NowSpAdmin.config.UserModelSpecialUniqueName
@@ -24,7 +23,7 @@ func Configuration(ctx iris.Context) {
 
 // 登录
 func Login(ctx iris.Context) {
-	var req validator.UserLoginReq
+	var req UserLoginReq
 	// 引入数据
 	if err := ctx.ReadJSON(&req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
@@ -34,7 +33,7 @@ func Login(ctx iris.Context) {
 		return
 	}
 	// 基础验证
-	if err := validator.GlobalValidator.Check(req); err != nil {
+	if err := GlobalValidator.Check(req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": err.Error(),
@@ -81,7 +80,7 @@ func Login(ctx iris.Context) {
 	}
 	// 生成jwt
 	jwt := GenJwtToken(valuesMap["id"], req.UserName)
-	var resp validator.UserLoginResp
+	var resp UserLoginResp
 	resp.Token = jwt
 	resp.UserName = req.UserName
 	resp.Roles = roles
@@ -90,7 +89,7 @@ func Login(ctx iris.Context) {
 
 // 注册
 func Reg(ctx iris.Context) {
-	var req validator.UserLoginReq
+	var req UserLoginReq
 	// 引入数据
 	if err := ctx.ReadJSON(&req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
@@ -100,7 +99,7 @@ func Reg(ctx iris.Context) {
 		return
 	}
 	// 基础验证
-	if err := validator.GlobalValidator.Check(req); err != nil {
+	if err := GlobalValidator.Check(req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": err.Error(),
@@ -118,7 +117,7 @@ func Reg(ctx iris.Context) {
 	}
 	// 生成jwt
 	jwt := GenJwtToken(strconv.FormatInt(aff, 10), req.UserName)
-	var resp validator.UserLoginResp
+	var resp UserLoginResp
 	resp.Token = jwt
 	resp.UserName = req.UserName
 	resp.Roles = []string{"guest"}
@@ -129,7 +128,7 @@ func Reg(ctx iris.Context) {
 func GetCurrentUser(ctx iris.Context) {
 	un := ctx.Values().Get("un").(string)
 	uid := ctx.Values().Get("uid").(string)
-	var resp validator.GetCurrentUserResp
+	var resp GetCurrentUserResp
 	resp.Name = un
 	resp.UserId = uid
 	resp.Avatar = "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png"
@@ -287,7 +286,7 @@ func EditRouterData(ctx iris.Context) {
 // 删除数据 -> 可以批量
 func RemoveRouterData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
-	var req validator.DeleteReq
+	var req DeleteReq
 	// 引入数据
 	if err := ctx.ReadJSON(&req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
@@ -297,7 +296,7 @@ func RemoveRouterData(ctx iris.Context) {
 		return
 	}
 	// 基础验证
-	if err := validator.GlobalValidator.Check(req); err != nil {
+	if err := GlobalValidator.Check(req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": err.Error(),
@@ -319,7 +318,7 @@ func RemoveRouterData(ctx iris.Context) {
 
 // 变更用户密码
 func ChangeUserPassword(ctx iris.Context) {
-	var req validator.UserChangePasswordReq
+	var req UserChangePasswordReq
 	// 引入数据
 	if err := ctx.ReadJSON(&req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
@@ -329,7 +328,7 @@ func ChangeUserPassword(ctx iris.Context) {
 		return
 	}
 	// 基础验证
-	if err := validator.GlobalValidator.Check(req); err != nil {
+	if err := GlobalValidator.Check(req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": err.Error(),
@@ -372,7 +371,7 @@ func ChangeUserPassword(ctx iris.Context) {
 
 // 变更用户群组
 func ChangeUserRoles(ctx iris.Context) {
-	var req validator.UserChangeRolesReq
+	var req UserChangeRolesReq
 	var err error
 	// 引入数据
 	if err = ctx.ReadJSON(&req); err != nil {
@@ -383,7 +382,7 @@ func ChangeUserRoles(ctx iris.Context) {
 		return
 	}
 	// 基础验证
-	if err = validator.GlobalValidator.Check(req); err != nil {
+	if err = GlobalValidator.Check(req); err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": err.Error(),
