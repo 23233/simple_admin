@@ -75,8 +75,11 @@ app.Listen(":8080")
 ```
 
 ## warning
-* first, now don't support xorm  `deleted` tag
+* ~~first, now don't support xorm  `deleted` tag~~
+* the best you do not use custom usermodel , admin isolation is good!
 
+## model custom tags (sp) now support
+* autogen  -> mark columns is code auto generate not handle
 
 
 ## todo features
