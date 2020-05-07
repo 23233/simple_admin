@@ -418,46 +418,38 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 					if StringsContains(xormTags, "created") || StringsContains(xormTags, "updated") || StringsContains(xormTags, "deleted") {
 						continue
 					}
-
 					switch f {
 					case "string":
 						d := ctx.PostValue(column.Name)
 						newInstance.Elem().FieldByName(fieldType.Name).SetString(d)
 						continue
 					case "int", "int8", "int16", "int32", "int64", "time.Duration":
-						d, err := ctx.PostValueInt(column.Name)
-						if err != nil {
-							return reflect.Value{}, errors.Wrap(err, "find int error")
+						d, _ := ctx.PostValueInt(column.Name)
+						if d == -1 {
+							d = 0
 						}
 						newInstance.Elem().FieldByName(fieldType.Name).SetInt(int64(d))
 						continue
 					case "uint", "uint8", "uint16", "uint32", "uint64":
-						d, err := ctx.PostValueInt(column.Name)
-						if err != nil {
-							if StringsContains(xormTags, "version") {
-								continue
-							}
-							return reflect.Value{}, errors.Wrap(err, "find uint error")
+						d, _ := ctx.PostValueInt(column.Name)
+						if d == -1 {
+							d = 0
 						}
 						newInstance.Elem().FieldByName(fieldType.Name).SetUint(uint64(d))
 						continue
 					case "float32", "float64":
-						d, err := ctx.PostValueFloat64(column.Name)
-						if err != nil {
-							return reflect.Value{}, errors.Wrap(err, "find float error")
+						d, _ := ctx.PostValueFloat64(column.Name)
+						if d == -1 {
+							d = 0
 						}
 						newInstance.Elem().FieldByName(fieldType.Name).SetFloat(d)
 						continue
 					case "bool":
-						d, err := ctx.PostValueBool(column.Name)
-						if err != nil {
-							return reflect.Value{}, errors.Wrap(err, "find bool error")
-						}
+						d, _ := ctx.PostValueBool(column.Name)
 						newInstance.Elem().FieldByName(fieldType.Name).SetBool(d)
 						continue
 					case "time", "time.Time":
 						d := ctx.PostValue(column.Name)
-
 						if len(d) < 1 {
 							return reflect.Value{}, errors.Wrap(err, "find time error")
 						}
