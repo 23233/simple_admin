@@ -8,7 +8,7 @@ import (
 
 type ModelBase struct {
 	Id         uint64    `xorm:"autoincr pk unique" json:"id"`
-	Uid        string    `xorm:"varchar(36) unique index notnull" json:"uid"`
+	Uid        string    `xorm:"varchar(36) unique index notnull" json:"uid" sp:"autogen"`
 	CreateTime time.Time `xorm:"created index" json:"create_time"`
 	UpdateTime time.Time `xorm:"updated" json:"update_time"`
 	DeletedAt  time.Time `xorm:"deleted" json:"deleted_at"`

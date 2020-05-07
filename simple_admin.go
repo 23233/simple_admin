@@ -414,10 +414,11 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 			for _, fieldType := range fieldTypes {
 				if fieldType.MapName == column.Name {
 					f := fieldType.Types
-					tags := strings.Split(fieldType.XormTags, " ")
-					if StringsContains(tags, "created") || StringsContains(tags, "updated") || StringsContains(tags, "deleted") {
+					xormTags := strings.Split(fieldType.XormTags, " ")
+					if StringsContains(xormTags, "created") || StringsContains(xormTags, "updated") || StringsContains(xormTags, "deleted") {
 						continue
 					}
+
 					switch f {
 					case "string":
 						d := ctx.PostValue(column.Name)
@@ -433,6 +434,9 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 					case "uint", "uint8", "uint16", "uint32", "uint64":
 						d, err := ctx.PostValueInt(column.Name)
 						if err != nil {
+							if StringsContains(xormTags, "version") {
+								continue
+							}
 							return reflect.Value{}, errors.Wrap(err, "find uint error")
 						}
 						newInstance.Elem().FieldByName(fieldType.Name).SetUint(uint64(d))

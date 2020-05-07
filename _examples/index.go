@@ -60,7 +60,7 @@ func main() {
 	}
 
 	//more RegisterView
-	tmpl := iris.HTML("./templates", ".html").Layout("layout.html")
+	tmpl := iris.HTML("_examples/templates", ".html").Layout("layout.html")
 	tmpl.Reload(true) // reload templates on each request (development mode)
 	app.RegisterView(tmpl)
 

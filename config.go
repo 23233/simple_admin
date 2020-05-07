@@ -40,6 +40,7 @@ type structInfo struct {
 	Types    string `json:"types"`
 	MapName  string `json:"map_name"`
 	XormTags string `json:"xorm_tags"`
+	SpTags   string `json:"sp_tags"`
 }
 
 // 默认配置文件
@@ -209,6 +210,7 @@ func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo 
 			d.Name = field.Name
 			d.Types = field.Type.String()
 			d.XormTags = field.Tag.Get("xorm")
+			d.SpTags = field.Tag.Get("sp")
 			d.MapName = config.Engine.GetColumnMapper().Obj2Table(field.Name)
 			result = append(result, d)
 			continue
@@ -222,6 +224,7 @@ func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo 
 		d.Types = field.Type.String()
 		d.MapName = config.Engine.GetColumnMapper().Obj2Table(field.Name)
 		d.XormTags = field.Tag.Get("xorm")
+		d.SpTags = field.Tag.Get("sp")
 		result = append(result, d)
 	}
 	return result
