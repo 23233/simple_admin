@@ -59,6 +59,15 @@ func main() {
 		panic(err)
 	}
 
+	//more RegisterView
+	tmpl := iris.HTML("./templates", ".html").Layout("layout.html")
+	tmpl.Reload(true) // reload templates on each request (development mode)
+	app.RegisterView(tmpl)
+
+	app.Get("/", func(ctx iris.Context) {
+		_ = ctx.View("index.html")
+	})
+
 	_ = app.Listen(":8080")
 
 }
