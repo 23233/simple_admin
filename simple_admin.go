@@ -512,7 +512,7 @@ func (lib *SpAdmin) Register() {
 	// $ go-bindata ./simple_admin_templates/...
 	// $ go build
 	app := lib.config.App
-	app.RegisterView(iris.HTML("./simple_admin_templates", ".html").Binary(Asset, AssetNames))
+	app.RegisterView(iris.HTML("./simple_admin_templates", ".template").Binary(Asset, AssetNames))
 	app.HandleDir("/simple_admin_static", "./simple_admin_templates", iris.DirOptions{
 		Asset:      Asset,
 		AssetInfo:  AssetInfo,
