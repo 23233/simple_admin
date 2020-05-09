@@ -523,3 +523,7 @@ func (lib *SpAdmin) Register() {
 	})
 	app.PartyFunc(lib.config.Prefix, lib.Router)
 }
+
+func init() {
+	log.SetPrefix("[simple_admin] ")
+}
