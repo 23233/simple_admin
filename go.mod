@@ -3,12 +3,13 @@ module github.com/23233/simple_admin
 go 1.14
 
 require (
+	github.com/23233/simple_valid v1.0.0
 	github.com/casbin/casbin/v2 v2.2.2
 	github.com/casbin/xorm-adapter v0.0.0-20191120030838-267478260350
 	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/go-playground/locales v0.13.0
 	github.com/go-playground/universal-translator v0.17.0
-	github.com/go-playground/validator/v10 v10.2.0
+	github.com/go-playground/validator/v10 v10.3.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/imdario/mergo v0.3.9
 	github.com/iris-contrib/go.uuid v2.0.0+incompatible

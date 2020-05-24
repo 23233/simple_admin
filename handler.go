@@ -23,23 +23,7 @@ func Configuration(ctx iris.Context) {
 
 // 登录
 func Login(ctx iris.Context) {
-	var req UserLoginReq
-	// 引入数据
-	if err := ctx.ReadJSON(&req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
-	// 基础验证
-	if err := GlobalValidator.Check(req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
+	req := ctx.Values().Get(SvKey).(*UserLoginReq)
 	// 判断用户是否存在
 	var valuesMap = make(map[string]string)
 	has, err := NowSpAdmin.config.Engine.Table(NowSpAdmin.config.getUserModelTableName()).Where("user_name = ?", req.UserName).Get(&valuesMap)
@@ -89,23 +73,8 @@ func Login(ctx iris.Context) {
 
 // 注册
 func Reg(ctx iris.Context) {
-	var req UserLoginReq
-	// 引入数据
-	if err := ctx.ReadJSON(&req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
-	// 基础验证
-	if err := GlobalValidator.Check(req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
+	req := ctx.Values().Get(SvKey).(*UserLoginReq)
+
 	// 生成用户
 	aff, err := NowSpAdmin.addUser(req.UserName, req.Password, NowSpAdmin.defaultRole["guest"])
 	if err != nil {
@@ -175,6 +144,13 @@ func GetRouterFields(ctx iris.Context) {
 		return
 	}
 	_, _ = ctx.JSON(fields)
+}
+
+//获取单个表的自定义操作
+func GetRouterCustomAction(ctx iris.Context) {
+	routerName := ctx.Params().Get("routerName")
+	action := NowSpAdmin.config.tableNameCustomActionScopeMatch(routerName)
+	_, _ = ctx.JSON(action)
 }
 
 // 获取表数据
@@ -286,23 +262,7 @@ func EditRouterData(ctx iris.Context) {
 // 删除数据 -> 可以批量
 func RemoveRouterData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
-	var req DeleteReq
-	// 引入数据
-	if err := ctx.ReadJSON(&req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
-	// 基础验证
-	if err := GlobalValidator.Check(req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
+	req := ctx.Values().Get(SvKey).(*DeleteReq)
 	// 进行批量删除
 	err := NowSpAdmin.bulkDeleteData(routerName, req.Ids)
 	if err != nil {
@@ -318,23 +278,7 @@ func RemoveRouterData(ctx iris.Context) {
 
 // 变更用户密码
 func ChangeUserPassword(ctx iris.Context) {
-	var req UserChangePasswordReq
-	// 引入数据
-	if err := ctx.ReadJSON(&req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
-	// 基础验证
-	if err := GlobalValidator.Check(req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
+	req := ctx.Values().Get(SvKey).(*UserChangePasswordReq)
 	uid := ctx.Values().Get("uid").(string)
 	// 判断当前用户是否是admin权限
 	roles, err := NowSpAdmin.casbinEnforcer.GetImplicitRolesForUser(uid)
@@ -371,24 +315,8 @@ func ChangeUserPassword(ctx iris.Context) {
 
 // 变更用户群组
 func ChangeUserRoles(ctx iris.Context) {
-	var req UserChangeRolesReq
+	req := ctx.Values().Get(SvKey).(*UserChangeRolesReq)
 	var err error
-	// 引入数据
-	if err = ctx.ReadJSON(&req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
-	// 基础验证
-	if err = GlobalValidator.Check(req); err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
-		return
-	}
 	if req.Add {
 		_, err = NowSpAdmin.casbinEnforcer.AddRoleForUser(strconv.FormatUint(req.Id, 10), req.Role)
 	} else {

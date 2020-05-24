@@ -33,6 +33,14 @@ type TestModelA struct {
 	Name string `xorm:"varchar(20)"`
 }
 
+type CustomReqValid struct {
+	Name string `json:"name" comment:"名称" validate:"required"`
+}
+
+type CustomReqBValid struct {
+	Desc string `json:"desc" validate:"required"`
+}
+
 type TestModelB struct {
 	Id   uint64 `xorm:"autoincr pk unique" json:"id"`
 	Desc string `xorm:"varchar(60)"`
