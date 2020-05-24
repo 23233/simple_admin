@@ -8,6 +8,7 @@ import (
 	"github.com/casbin/casbin/v2/model"
 	xormadapter "github.com/casbin/xorm-adapter"
 	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
 	"log"
 	"reflect"
 	"time"
@@ -22,10 +23,12 @@ type Config struct {
 	UserModel                  interface{}       // 用户模型
 	RunSync                    bool              // 是否进行sync
 	PageSize                   int
+	AbridgeName                string
 	Prefix                     string
 	InitAdminUserName          string
 	InitAdminPassword          string
 	UserModelSpecialUniqueName string
+	CustomAction               []CustomAction
 }
 
 type UserModel struct {
@@ -35,12 +38,14 @@ type UserModel struct {
 	Salt     string `xorm:"varchar(40) notnull" json:"salt"`
 }
 
-type structInfo struct {
-	Name     string `json:"name"`
-	Types    string `json:"types"`
-	MapName  string `json:"map_name"`
-	XormTags string `json:"xorm_tags"`
-	SpTags   string `json:"sp_tags"`
+// 自定义action
+type CustomAction struct {
+	Name    string        `json:"name"`    // action display name
+	Methods string        `json:"methods"` // request run methods
+	Valid   interface{}   `json:"valid"`   // request valid struct
+	Path    string        `json:"path"`    // request path
+	Scope   []interface{} `json:"scope"`   // show where
+	Func    func(ctx context.Context)
 }
 
 // 默认配置文件
@@ -54,6 +59,7 @@ func (config *Config) init() Config {
 		InitAdminUserName:          "admin",
 		InitAdminPassword:          "iris_best",
 		UserModelSpecialUniqueName: "simple_admin_user_model",
+		AbridgeName:                "sp",
 	}
 }
 
@@ -76,6 +82,16 @@ func (config *Config) valid() error {
 	}
 	if config.Prefix[0] != '/' {
 		return MsgLog("please check config , prefix must start with / ")
+	}
+	if len(config.CustomAction) >= 1 {
+		for _, action := range config.CustomAction {
+			if len(action.Scope) < 1 {
+				return MsgLog("please check config, custom action scope is required")
+			}
+			if reflect.ValueOf(action.Valid).IsNil() || len(action.Name) < 1 || len(action.Methods) < 1 || len(action.Path) < 1 {
+				return MsgLog("please check config, custom action all fields is required")
+			}
+		}
 	}
 	return nil
 }
@@ -128,6 +144,23 @@ func (config *Config) runSync() error {
 	}
 	err := config.Engine.Sync2(config.UserModel)
 	return err
+}
+
+// 通过表名匹配是否有自定义action
+func (config *Config) tableNameCustomActionScopeMatch(routerName string) CustomActionResp {
+	var d CustomActionResp
+	for _, action := range config.CustomAction {
+		d.Path = action.Path
+		d.Methods = action.Methods
+		d.Name = action.Name
+		for _, scope := range action.Scope {
+			if config.Engine.TableName(scope) == routerName {
+				values := config.tableNameGetNestedStructMaps(reflect.TypeOf(action.Valid))
+				d.Fields = values[0]
+			}
+		}
+	}
+	return d
 }
 
 // 模型表名序列生成
@@ -189,7 +222,7 @@ func (config *Config) tableNameReflectFieldsAndTypes(tableName string) (TableFie
 
 }
 
-// 通过模型名获取所有列信息 三要素 名称 类型 xorm tag
+// 通过模型名获取所有列信息 名称 类型 xorm tag validator
 func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo {
 	if r.Kind() == reflect.Ptr {
 		r = r.Elem()
@@ -210,7 +243,8 @@ func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo 
 			d.Name = field.Name
 			d.Types = field.Type.String()
 			d.XormTags = field.Tag.Get("xorm")
-			d.SpTags = field.Tag.Get("sp")
+			d.SpTags = field.Tag.Get(config.AbridgeName)
+			d.ValidateTags = field.Tag.Get("validate")
 			d.MapName = config.Engine.GetColumnMapper().Obj2Table(field.Name)
 			result = append(result, d)
 			continue
@@ -224,7 +258,8 @@ func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo 
 		d.Types = field.Type.String()
 		d.MapName = config.Engine.GetColumnMapper().Obj2Table(field.Name)
 		d.XormTags = field.Tag.Get("xorm")
-		d.SpTags = field.Tag.Get("sp")
+		d.SpTags = field.Tag.Get(config.AbridgeName)
+		d.ValidateTags = field.Tag.Get("validate")
 		result = append(result, d)
 	}
 	return result

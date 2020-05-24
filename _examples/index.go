@@ -5,6 +5,7 @@ import (
 	"github.com/23233/simple_admin/_examples/database"
 	"github.com/23233/simple_admin/_examples/model"
 	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
 	"github.com/kataras/iris/v12/middleware/logger"
 	"github.com/kataras/iris/v12/middleware/recover"
 )
@@ -47,13 +48,29 @@ func main() {
 		new(model.TestStructComplexModel),
 	}
 
+	var nameAction simple_admin.CustomAction
+	var nameActionScope []interface{}
+	nameActionScope = append(nameActionScope, new(model.TestModelA))
+	nameAction.Name = "显示文件名"
+	nameAction.Valid = new(model.CustomReqValid)
+	nameAction.Path = "/get_name"
+	nameAction.Methods = "POST"
+	nameAction.Scope = nameActionScope
+	nameAction.Func = func(ctx context.Context) {
+		req := ctx.Values().Get("sv").(*model.CustomReqValid)
+		_, _ = ctx.JSON(iris.Map{"name": req.Name})
+	}
+
+	var customAction []simple_admin.CustomAction
+	customAction = append(customAction, nameAction)
 	_, err := simple_admin.New(simple_admin.Config{
-		Engine:    engine,
-		App:       app,
-		ModelList: modelList,
-		Name:      "测试sync",
-		RunSync:   true,
-		Prefix:    "/admin",
+		Engine:       engine,
+		App:          app,
+		ModelList:    modelList,
+		Name:         "测试sync",
+		RunSync:      true,
+		Prefix:       "/admin",
+		CustomAction: customAction,
 	})
 	if err != nil {
 		panic(err)

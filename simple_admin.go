@@ -2,9 +2,11 @@ package simple_admin
 
 import (
 	"fmt"
+	"github.com/23233/simple_valid"
 	"github.com/casbin/casbin/v2"
 	"github.com/imdario/mergo"
 	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
 	"github.com/pkg/errors"
 	"log"
 	"reflect"
@@ -15,6 +17,7 @@ import (
 
 var (
 	NowSpAdmin *SpAdmin
+	SvKey      = "sv"
 )
 
 type SpAdmin struct {
@@ -24,6 +27,7 @@ type SpAdmin struct {
 	defaultMethods map[string]string // 默认权限方法
 	defaultRole    map[string]string // 默认角色
 	sitePolicy     map[string]string
+	sv             simple_valid.ReqValid
 }
 
 type Policy struct {
@@ -69,6 +73,13 @@ func New(c Config) (*SpAdmin, error) {
 	// 生成表名列表
 	modelTables := c.generateTables()
 
+	// 验证器初始化
+	sv := simple_valid.New(SvKey, func(err error, ctx context.Context) {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{"detail": err.Error()})
+		return
+	})
+
 	NowSpAdmin = &SpAdmin{
 		config:         c,
 		casbinEnforcer: enforcer,
@@ -88,9 +99,15 @@ func New(c Config) (*SpAdmin, error) {
 			"login_site":  "login_site",
 			"user_manage": c.getUserModelTableName(),
 		},
+		sv: sv,
 	}
 	// 进行视图注册绑定
 	NowSpAdmin.Register()
+
+	// 进行自定义action绑定
+	NowSpAdmin.InitCustomAction()
+
+	//c.tableNameGetCustomActions("test_model_a")
 
 	// 初始化权限
 	err = NowSpAdmin.initRolesAndPermissions()
@@ -107,35 +124,49 @@ func New(c Config) (*SpAdmin, error) {
 	return NowSpAdmin, nil
 }
 
-// 在这里注册路由
+// 自定义方法绑定
+func (lib *SpAdmin) InitCustomAction() {
+	if len(lib.config.CustomAction) >= 1 {
+		actionRouter := lib.config.App.Party(lib.config.Prefix + "/action")
+		for _, action := range lib.config.CustomAction {
+			// 注册视图
+			router := actionRouter.Handle(action.Methods, action.Path, action.Func)
+			router.Use(lib.sv.Run(action.Valid))
+		}
+	}
+}
+
+// 在这里注册主路由
 func (lib *SpAdmin) Router(router iris.Party) {
 	// 首页
 	router.Get("/", Index)
 	// 登录
-	router.Post("/login", Login)
+	router.Post("/login", lib.sv.Run(new(UserLoginReq)), Login)
 	// 注册
-	router.Post("/reg", Reg)
+	router.Post("/reg", lib.sv.Run(new(UserLoginReq)), Reg)
 	router.Get("/config", Configuration)
 	c := router.Party("/v", CustomJwt.Serve, TokenToUserUidMiddleware)
 	// 获取当前用户
 	c.Get("/get_current_user", GetCurrentUser)
 	// 变更用户密码
-	c.Post("/change_password", ChangeUserPassword)
+	c.Post("/change_password", lib.sv.Run(new(UserChangePasswordReq)), ChangeUserPassword)
 	// 获取所有表
 	c.Get("/get_routers", GetRouters)
 	// 获取单表列信息
 	c.Get("/get_routers_fields/{routerName:string}", PolicyValidMiddleware, GetRouterFields)
+	// 获取单表自定义action
+	c.Get("/get_routers_action/{routerName:string}", PolicyValidMiddleware, GetRouterCustomAction)
 	// 查看
 	c.Get("/{routerName:string}", PolicyValidMiddleware, GetRouterData)
 	c.Get("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, GetRouterSingleData)
 	// 增加
-	c.Post("/{routerName:string}", PolicyValidMiddleware, AddRouterData)
+	c.Post("/{routerName:string}", PolicyValidMiddleware, lib.sv.Run(new(DeleteReq)), AddRouterData)
 	// 修改
 	c.Put("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, EditRouterData)
 	// 删除 delete模式在某些匹配时候有问题
 	c.Post("/{routerName:string}/delete", PolicyValidMiddleware, RemoveRouterData)
 	// 权限相关
-	c.Post("/change_user_role", PolicyRequireAdminMiddleware, ChangeUserRoles)
+	c.Post("/change_user_role", PolicyRequireAdminMiddleware, lib.sv.Run(new(UserChangeRolesReq)), ChangeUserRoles)
 
 }
 
