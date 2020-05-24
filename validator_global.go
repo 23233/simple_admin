@@ -29,8 +29,8 @@ type TableFieldsResp struct {
 }
 
 type CustomActionResp struct {
-	Name    string     `json:"name"`    // action display name
-	Methods string     `json:"methods"` // request run methods
-	Fields  structInfo `json:"fields"`  // request valid struct
-	Path    string     `json:"path"`    // request path
+	Name    string       `json:"name"`    // action display name
+	Methods string       `json:"methods"` // request run methods
+	Fields  []structInfo `json:"fields"`  // request valid struct
+	Path    string       `json:"path"`    // request path
 }

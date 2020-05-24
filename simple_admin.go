@@ -104,9 +104,6 @@ func New(c Config) (*SpAdmin, error) {
 	// 进行视图注册绑定
 	NowSpAdmin.Register()
 
-	// 进行自定义action绑定
-	NowSpAdmin.InitCustomAction()
-
 	//c.tableNameGetCustomActions("test_model_a")
 
 	// 初始化权限
@@ -122,18 +119,6 @@ func New(c Config) (*SpAdmin, error) {
 	}
 
 	return NowSpAdmin, nil
-}
-
-// 自定义方法绑定
-func (lib *SpAdmin) InitCustomAction() {
-	if len(lib.config.CustomAction) >= 1 {
-		actionRouter := lib.config.App.Party(lib.config.Prefix + "/action")
-		for _, action := range lib.config.CustomAction {
-			// 注册视图
-			router := actionRouter.Handle(action.Methods, action.Path, action.Func)
-			router.Use(lib.sv.Run(action.Valid))
-		}
-	}
 }
 
 // 在这里注册主路由
@@ -167,7 +152,10 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	c.Post("/{routerName:string}/delete", PolicyValidMiddleware, RemoveRouterData)
 	// 权限相关
 	c.Post("/change_user_role", PolicyRequireAdminMiddleware, lib.sv.Run(new(UserChangeRolesReq)), ChangeUserRoles)
-
+	// 进行自定义action绑定
+	for _, action := range lib.config.CustomAction {
+		c.Handle(action.Methods, action.Path, lib.sv.Run(action.Valid), action.Func)
+	}
 }
 
 // 权限变更
