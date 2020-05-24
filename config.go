@@ -156,7 +156,7 @@ func (config *Config) tableNameCustomActionScopeMatch(routerName string) CustomA
 		for _, scope := range action.Scope {
 			if config.Engine.TableName(scope) == routerName {
 				values := config.tableNameGetNestedStructMaps(reflect.TypeOf(action.Valid))
-				d.Fields = values[0]
+				d.Fields = values
 			}
 		}
 	}
