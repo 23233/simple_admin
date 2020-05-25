@@ -151,6 +151,7 @@ func GetRouterCustomAction(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
 	action := NowSpAdmin.config.tableNameCustomActionScopeMatch(routerName)
 	_, _ = ctx.JSON(action)
+
 }
 
 // 获取表数据
