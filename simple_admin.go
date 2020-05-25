@@ -104,8 +104,6 @@ func New(c Config) (*SpAdmin, error) {
 	// 进行视图注册绑定
 	NowSpAdmin.Register()
 
-	//c.tableNameGetCustomActions("test_model_a")
-
 	// 初始化权限
 	err = NowSpAdmin.initRolesAndPermissions()
 	if err != nil {
@@ -145,11 +143,11 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	c.Get("/{routerName:string}", PolicyValidMiddleware, GetRouterData)
 	c.Get("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, GetRouterSingleData)
 	// 增加
-	c.Post("/{routerName:string}", PolicyValidMiddleware, lib.sv.Run(new(DeleteReq)), AddRouterData)
+	c.Post("/{routerName:string}", PolicyValidMiddleware, AddRouterData)
 	// 修改
 	c.Put("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, EditRouterData)
 	// 删除 delete模式在某些匹配时候有问题
-	c.Post("/{routerName:string}/delete", PolicyValidMiddleware, RemoveRouterData)
+	c.Post("/{routerName:string}/delete", PolicyValidMiddleware, lib.sv.Run(new(DeleteReq)), RemoveRouterData)
 	// 权限相关
 	c.Post("/change_user_role", PolicyRequireAdminMiddleware, lib.sv.Run(new(UserChangeRolesReq)), ChangeUserRoles)
 	// 进行自定义action绑定
