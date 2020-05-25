@@ -61,8 +61,21 @@ func main() {
 		_, _ = ctx.JSON(iris.Map{"name": req.Name})
 	}
 
+	var complexAction simple_admin.CustomAction
+	var complexActionScope []interface{}
+	complexActionScope = append(complexActionScope, new(model.TestModelB))
+	complexAction.Name = "复杂action测试"
+	complexAction.Valid = new(model.CustomReqBValid)
+	complexAction.Path = "/get_xxxx"
+	complexAction.Methods = "POST"
+	complexAction.Scope = complexActionScope
+	complexAction.Func = func(ctx context.Context) {
+		req := ctx.Values().Get("sv").(*model.CustomReqBValid)
+		_, _ = ctx.JSON(iris.Map{"name": req.Desc})
+	}
+
 	var customAction []simple_admin.CustomAction
-	customAction = append(customAction, nameAction)
+	customAction = append(customAction, nameAction, complexAction)
 	_, err := simple_admin.New(simple_admin.Config{
 		Engine:       engine,
 		App:          app,

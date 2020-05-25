@@ -11,6 +11,7 @@ import (
 	"github.com/kataras/iris/v12/context"
 	"log"
 	"reflect"
+	"strings"
 	"time"
 	"xorm.io/xorm"
 )
@@ -91,6 +92,9 @@ func (config *Config) valid() error {
 			if reflect.ValueOf(action.Valid).IsNil() || len(action.Name) < 1 || len(action.Methods) < 1 || len(action.Path) < 1 {
 				return MsgLog("please check config, custom action all fields is required")
 			}
+			if strings.HasPrefix(action.Path, "/") == false {
+				return MsgLog("custom action path must be use / start prefix")
+			}
 		}
 	}
 	return nil
@@ -147,20 +151,23 @@ func (config *Config) runSync() error {
 }
 
 // 通过表名匹配是否有自定义action
-func (config *Config) tableNameCustomActionScopeMatch(routerName string) CustomActionResp {
-	var d CustomActionResp
+func (config *Config) tableNameCustomActionScopeMatch(routerName string) []CustomActionResp {
+	result := make([]CustomActionResp, 0)
 	for _, action := range config.CustomAction {
-		d.Path = action.Path
-		d.Methods = action.Methods
-		d.Name = action.Name
 		for _, scope := range action.Scope {
-			if config.Engine.TableName(scope) == routerName {
+			tableName := config.Engine.TableName(scope)
+			if tableName == routerName {
+				var d CustomActionResp
+				d.Path = action.Path
+				d.Methods = action.Methods
+				d.Name = action.Name
 				values := config.tableNameGetNestedStructMaps(reflect.TypeOf(action.Valid))
 				d.Fields = values
+				result = append(result, d)
 			}
 		}
 	}
-	return d
+	return result
 }
 
 // 模型表名序列生成
