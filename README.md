@@ -86,6 +86,6 @@ app.Listen(":8080")
 - [] full test
 - [] gorm support
 - [] add websocket dashboard
-- [] custom action
+- [x] custom action
 - [] fine permission manage
 - [] beat more features
