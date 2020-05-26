@@ -539,6 +539,8 @@ func (lib *SpAdmin) Register() {
 		// }
 	})
 	app.PartyFunc(lib.config.Prefix, lib.Router)
+	// 其他所有操作都重定向
+	app.Get("/SP_PREFIX/{root:path}", Index)
 }
 
 func init() {
