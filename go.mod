@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/23233/simple_valid v1.0.4
+	github.com/23233/sv v1.0.8
 	github.com/casbin/casbin/v2 v2.2.2
 	github.com/casbin/xorm-adapter v0.0.0-20191120030838-267478260350
 	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
