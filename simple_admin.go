@@ -28,6 +28,7 @@ type SpAdmin struct {
 	defaultRole    map[string]string // 默认角色
 	sitePolicy     map[string]string
 	sv             simple_valid.ReqValid
+	prefix         string
 }
 
 type Policy struct {
@@ -99,7 +100,8 @@ func New(c Config) (*SpAdmin, error) {
 			"login_site":  "login_site",
 			"user_manage": c.getUserModelTableName(),
 		},
-		sv: sv,
+		sv:     sv,
+		prefix: "/SP_PREFIX",
 	}
 	// 进行视图注册绑定
 	NowSpAdmin.Register()
@@ -540,7 +542,7 @@ func (lib *SpAdmin) Register() {
 	})
 	app.PartyFunc(lib.config.Prefix, lib.Router)
 	// 其他所有操作都重定向
-	app.Get("/SP_PREFIX/{root:path}", Index)
+	app.Get(lib.prefix+"/{root:path}", Index)
 }
 
 func init() {
