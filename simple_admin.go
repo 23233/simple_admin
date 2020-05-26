@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	NowSpAdmin *SpAdmin
-	SvKey      = "sv"
+	NowSpAdmin    *SpAdmin
+	SvKey         = "sv"
+	DefaultPrefix = "/SP_PREFIX"
 )
 
 type SpAdmin struct {
@@ -101,7 +102,7 @@ func New(c Config) (*SpAdmin, error) {
 			"user_manage": c.getUserModelTableName(),
 		},
 		sv:     sv,
-		prefix: "/SP_PREFIX",
+		prefix: DefaultPrefix,
 	}
 	// 进行视图注册绑定
 	NowSpAdmin.Register()
