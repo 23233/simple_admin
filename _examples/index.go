@@ -53,8 +53,6 @@ func main() {
 	nameActionScope = append(nameActionScope, new(model.TestModelA))
 	nameAction.Name = "显示文件名"
 	nameAction.Valid = new(model.CustomReqValid)
-	nameAction.Path = "/get_name"
-	nameAction.Methods = "POST"
 	nameAction.Scope = nameActionScope
 	nameAction.Func = func(ctx context.Context) {
 		req := ctx.Values().Get("sv").(*model.CustomReqValid)
@@ -66,8 +64,6 @@ func main() {
 	complexActionScope = append(complexActionScope, new(model.TestModelB))
 	complexAction.Name = "复杂action测试"
 	complexAction.Valid = new(model.CustomReqBValid)
-	complexAction.Path = "/get_xxxx"
-	complexAction.Methods = "POST"
 	complexAction.Scope = complexActionScope
 	complexAction.Func = func(ctx context.Context) {
 		req := ctx.Values().Get("sv").(*model.CustomReqBValid)

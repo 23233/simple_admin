@@ -14,15 +14,15 @@ type UserLoginReq struct {
 }
 
 type UserLoginResp struct {
-	Token    string   `json:"token"`
-	UserName string   `json:"user_name"`
-	Roles    []string `json:"roles"`
+	Token    string             `json:"token"`
+	UserInfo GetCurrentUserResp `json:"user_info"`
 }
 
 type GetCurrentUserResp struct {
-	Name   string `json:"name"`
-	Avatar string `json:"avatar"`
-	UserId string `json:"userid"`
+	Name   string   `json:"name"`
+	Avatar string   `json:"avatar"`
+	UserId string   `json:"userid"`
+	Roles  []string `json:"roles"`
 }
 
 // 用户变更密码

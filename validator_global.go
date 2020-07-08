@@ -7,7 +7,7 @@ type ConfigResp struct {
 }
 
 type DeleteReq struct {
-	Ids string `json:"ids" comment:"标识符列表" validate:"required,min=1"`
+	Ids string `json:"ids" form:"ids" comment:"标识符列表" validate:"required,min=1"`
 }
 
 // 模型信息
@@ -18,6 +18,8 @@ type structInfo struct {
 	XormTags     string `json:"xorm_tags"`
 	SpTags       string `json:"sp_tags"`
 	ValidateTags string `json:"validate_tags"`
+	CommentTags  string `json:"comment_tags"`
+	AttrTags     string `json:"attr_tags"`
 }
 
 type TableFieldsResp struct {

@@ -66,15 +66,12 @@ func Login(ctx iris.Context) {
 	jwt := GenJwtToken(valuesMap["id"], req.UserName)
 	var resp UserLoginResp
 	resp.Token = jwt
-	resp.UserName = req.UserName
-	resp.Roles = roles
 	_, _ = ctx.JSON(resp)
 }
 
 // 注册
 func Reg(ctx iris.Context) {
 	req := ctx.Values().Get(SvKey).(*UserLoginReq)
-
 	// 生成用户
 	aff, err := NowSpAdmin.addUser(req.UserName, req.Password, NowSpAdmin.defaultRole["guest"])
 	if err != nil {
@@ -88,8 +85,6 @@ func Reg(ctx iris.Context) {
 	jwt := GenJwtToken(strconv.FormatInt(aff, 10), req.UserName)
 	var resp UserLoginResp
 	resp.Token = jwt
-	resp.UserName = req.UserName
-	resp.Roles = []string{"guest"}
 	_, _ = ctx.JSON(resp)
 }
 
@@ -97,10 +92,12 @@ func Reg(ctx iris.Context) {
 func GetCurrentUser(ctx iris.Context) {
 	un := ctx.Values().Get("un").(string)
 	uid := ctx.Values().Get("uid").(string)
+	roles, _ := NowSpAdmin.casbinEnforcer.GetImplicitRolesForUser(uid)
 	var resp GetCurrentUserResp
 	resp.Name = un
 	resp.UserId = uid
 	resp.Avatar = "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png"
+	resp.Roles = roles
 	_, _ = ctx.JSON(resp)
 }
 
@@ -151,7 +148,6 @@ func GetRouterCustomAction(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
 	action := NowSpAdmin.config.tableNameCustomActionScopeMatch(routerName)
 	_, _ = ctx.JSON(action)
-
 }
 
 // 获取表数据

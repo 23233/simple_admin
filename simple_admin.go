@@ -55,6 +55,8 @@ func New(c Config) (*SpAdmin, error) {
 	if err := c.valid(); err != nil {
 		return nil, err
 	}
+	// action合并
+	c.validAction()
 
 	// 进行初始化权限系统
 	enforcer, err := c.initCasbin()
@@ -299,7 +301,16 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 		return p, err
 	}
 
-	data, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Limit(pageSize).QueryString()
+	tableInfo, err := lib.config.tableNameReflectFieldsAndTypes(routerName)
+	if err != nil {
+		return p, err
+	}
+	orderByField := tableInfo.Autoincr
+	if len(tableInfo.Updated) >= 1 {
+		orderByField = tableInfo.Updated
+	}
+
+	data, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Desc(orderByField).Limit(pageSize).QueryString()
 	if err != nil {
 		return p, err
 	}
@@ -361,8 +372,8 @@ func (lib *SpAdmin) addData(routerName string, data reflect.Value) error {
 func (lib *SpAdmin) editData(routerName string, id uint64, data reflect.Value) error {
 	// 默认只更新非空和非0的字段 xorm的规则
 	// 所以这里启动全量更新 传入数据必须为全量
-	uid, err := lib.config.Engine.Table(routerName).ID(id).AllCols().Update(data.Interface())
-	if uid == 0 || err != nil {
+	aff, err := lib.config.Engine.Table(routerName).ID(id).AllCols().Update(data.Interface())
+	if aff == 0 || err != nil {
 		return MsgLog(fmt.Sprintf("edit data fail %s id:%d router:%s", err, id, routerName))
 	}
 	// 获取
