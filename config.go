@@ -89,15 +89,42 @@ func (config *Config) valid() error {
 			if len(action.Scope) < 1 {
 				return MsgLog("please check config, custom action scope is required")
 			}
-			if reflect.ValueOf(action.Valid).IsNil() || len(action.Name) < 1 || len(action.Methods) < 1 || len(action.Path) < 1 {
+			if reflect.ValueOf(action.Valid).IsNil() || len(action.Name) < 1 {
 				return MsgLog("please check config, custom action all fields is required")
 			}
-			if strings.HasPrefix(action.Path, "/") == false {
-				return MsgLog("custom action path must be use / start prefix")
+			if len(action.Path) >= 1 {
+				if strings.HasPrefix(action.Path, "/") == false {
+					return MsgLog("custom action path must be use / start prefix")
+				}
 			}
 		}
 	}
 	return nil
+}
+
+// 合并验证自定义action
+func (config *Config) validAction() {
+	var result []CustomAction
+	for _, action := range config.CustomAction {
+		var d CustomAction
+		if len(action.Methods) < 1 {
+			d.Methods = "POST"
+		} else {
+			d.Methods = action.Methods
+		}
+		if len(action.Path) < 1 {
+			d.Path = "p_" + RandStringBytes(6)
+		} else {
+			d.Path = action.Path
+		}
+		d.Name = action.Name
+		d.Valid = action.Valid
+
+		d.Scope = action.Scope
+		d.Func = action.Func
+		result = append(result, d)
+	}
+	config.CustomAction = result
 }
 
 // 配置文件初始化权限
@@ -229,7 +256,7 @@ func (config *Config) tableNameReflectFieldsAndTypes(tableName string) (TableFie
 
 }
 
-// 通过模型名获取所有列信息 名称 类型 xorm tag validator
+// 通过模型名获取所有列信息 名称 类型 xorm tag validator comment
 func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo {
 	if r.Kind() == reflect.Ptr {
 		r = r.Elem()
@@ -252,6 +279,8 @@ func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo 
 			d.XormTags = field.Tag.Get("xorm")
 			d.SpTags = field.Tag.Get(config.AbridgeName)
 			d.ValidateTags = field.Tag.Get("validate")
+			d.CommentTags = field.Tag.Get("comment")
+			d.AttrTags = field.Tag.Get("attr")
 			d.MapName = config.Engine.GetColumnMapper().Obj2Table(field.Name)
 			result = append(result, d)
 			continue
@@ -266,6 +295,8 @@ func (config *Config) tableNameGetNestedStructMaps(r reflect.Type) []structInfo 
 		d.MapName = config.Engine.GetColumnMapper().Obj2Table(field.Name)
 		d.XormTags = field.Tag.Get("xorm")
 		d.SpTags = field.Tag.Get(config.AbridgeName)
+		d.CommentTags = field.Tag.Get("comment")
+		d.AttrTags = field.Tag.Get("attr")
 		d.ValidateTags = field.Tag.Get("validate")
 		result = append(result, d)
 	}

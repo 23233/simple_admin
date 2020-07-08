@@ -80,6 +80,7 @@ app.Listen(":8080")
 
 ## model custom tags (sp) now support
 * autogen  -> mark columns is code auto generate not handle
+* lineTo -> if custom action , default value use this define for select row
 
 
 ## todo features

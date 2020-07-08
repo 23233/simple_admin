@@ -34,6 +34,8 @@ type TestModelA struct {
 }
 
 type CustomReqValid struct {
+	Id   uint64 `json:"id" sp:"lineTo(Id)"`
+	Uid  string `json:"uid" comment:"标识符" validate:"required" sp:"lineTo(Uid)"`
 	Name string `json:"name" comment:"名称" validate:"required"`
 }
 
