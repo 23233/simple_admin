@@ -346,8 +346,8 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 }
 
 // 单条数据获取
-func (lib *SpAdmin) SingleData(routerName string, id uint64) (map[string]string, error) {
-	var valuesMap = make(map[string]string)
+func (lib *SpAdmin) SingleData(routerName string, id uint64) (map[string]interface{}, error) {
+	var valuesMap = make(map[string]interface{})
 	has, err := lib.config.Engine.Table(routerName).Where("id = ?", id).Get(&valuesMap)
 	if err != nil {
 		return valuesMap, err
