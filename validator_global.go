@@ -36,3 +36,8 @@ type CustomActionResp struct {
 	Fields  []structInfo `json:"fields"`  // request valid struct
 	Path    string       `json:"path"`    // request path
 }
+
+// 搜索
+type SearchReq struct {
+	SearchText string `json:"search_text" form:"search_text" comment:"搜索内容" validate:"max=20" `
+}

@@ -2,13 +2,39 @@ package main
 
 import (
 	"github.com/23233/simple_admin"
-	"github.com/23233/simple_admin/_examples/database"
 	"github.com/23233/simple_admin/_examples/model"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/context"
 	"github.com/kataras/iris/v12/middleware/logger"
 	"github.com/kataras/iris/v12/middleware/recover"
+	_ "github.com/mattn/go-sqlite3"
+	"time"
+	"xorm.io/xorm"
 )
+
+var Engine *xorm.Engine
+
+func init() {
+	// database 连接器
+	var err error
+
+	Engine, err = xorm.NewEngine("sqlite3", "./simple.db")
+
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	//Engine.SetLogger()
+	Engine.ShowSQL(true)
+	//Engine.ShowExecTime(true)
+	err = Engine.Ping()
+	if err != nil {
+		panic(err)
+	}
+
+	// timezone时区
+	Engine.TZLocation, _ = time.LoadLocation("Asia/Shanghai")
+}
 
 func main() {
 	app := iris.New()
@@ -39,7 +65,6 @@ func main() {
 	app.Use(customLogger)
 	app.Use(recover.New())
 
-	engine := database.Engine
 	modelList := []interface{}{
 		new(model.TestModelA),
 		new(model.TestModelB),
@@ -73,7 +98,7 @@ func main() {
 	var customAction []simple_admin.CustomAction
 	customAction = append(customAction, nameAction, complexAction)
 	_, err := simple_admin.New(simple_admin.Config{
-		Engine:       engine,
+		Engine:       Engine,
 		App:          app,
 		ModelList:    modelList,
 		Name:         "测试sync",

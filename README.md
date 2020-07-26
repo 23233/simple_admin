@@ -75,18 +75,22 @@ app.Listen(":8080")
 ```
 
 ## warning
-* ~~first, now don't support xorm  `deleted` tag~~
+* ~~first, now don't support xorm  `deleted` tag~~ *delete use Unscoped methods!*
 * the best you do not use custom usermodel , admin isolation is good!
 
 ## model custom tags (sp) now support
 * autogen  -> mark columns is code auto generate not handle
 * lineTo -> if custom action , default value use this define for select row
+* fk -> foreign key , support one to tone and many to one , if use multiple is many to one , *just only support id columns , must be have id field !!!* 
+
+
 
 
 ## todo features
+- [] more futures support: data filter , simple custom action ...
 - [] full test
 - [] gorm support
 - [] add websocket dashboard
-- [x] custom action
+- [x] custom action 
 - [] fine permission manage
 - [] beat more features

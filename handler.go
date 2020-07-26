@@ -165,6 +165,22 @@ func GetRouterData(ctx iris.Context) {
 	_, _ = ctx.JSON(data)
 }
 
+// 搜索表数据
+func SearchRouterData(ctx iris.Context) {
+	routerName := ctx.Params().Get("routerName")
+	req := ctx.Values().Get(SvKey).(*SearchReq)
+	data, err := NowSpAdmin.searchData(routerName, req.SearchText)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": err.Error(),
+		})
+		return
+	}
+
+	_, _ = ctx.JSON(data)
+}
+
 // 获取表单条数据
 func GetRouterSingleData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
