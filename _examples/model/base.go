@@ -74,6 +74,8 @@ type ComplexModelD struct {
 	TestTimeDuration time.Duration `json:"test_time_duration"`
 	TestTimeTime     time.Time     `json:"test_time_time"`
 	TestBool         bool          `json:"test_bool"`
+	TestFk           string        `json:"test_fk" sp:"fk('ComplexModelC')"`            // one to one
+	TestManyFk       string        `json:"test_many_fk" sp:"fk:ComplexModelC multiple"` // one to many
 }
 
 type TestUserModel struct {

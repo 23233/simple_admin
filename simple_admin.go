@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"xorm.io/xorm"
 )
 
 var (
@@ -136,6 +137,7 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	c.Get("/get_routers_action/{routerName:string}", PolicyValidMiddleware, GetRouterCustomAction)
 	// 查看
 	c.Get("/{routerName:string}", PolicyValidMiddleware, GetRouterData)
+	c.Post("/{routerName:string}/search", sv.Run(new(SearchReq)), SearchRouterData)
 	c.Get("/{routerName:string}/{id:uint64}", PolicyValidMiddleware, GetRouterSingleData)
 	// 增加
 	c.Post("/{routerName:string}", PolicyValidMiddleware, AddRouterData)
@@ -301,16 +303,7 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 		return p, err
 	}
 
-	tableInfo, err := lib.config.tableNameReflectFieldsAndTypes(routerName)
-	if err != nil {
-		return p, err
-	}
-	orderByField := tableInfo.Autoincr
-	if len(tableInfo.Updated) >= 1 {
-		orderByField = tableInfo.Updated
-	}
-
-	data, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Desc(orderByField).Limit(pageSize).QueryString()
+	data, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Limit(pageSize).QueryString()
 	if err != nil {
 		return p, err
 	}
@@ -366,6 +359,32 @@ func (lib *SpAdmin) addData(routerName string, data reflect.Value) error {
 	}
 	// 获取
 	return nil
+}
+
+// 搜索数据
+func (lib *SpAdmin) searchData(routerName string, searchText string) ([]map[string]string, error) {
+	var result []map[string]string
+	tableInfo, err := lib.config.tableNameReflectFieldsAndTypes(routerName)
+	if err != nil {
+		return result, err
+	}
+	whereJoin := make([]string, 0)
+	for _, field := range tableInfo.Fields {
+		whereJoin = append(whereJoin, fmt.Sprintf("`%s` like ?", field.MapName))
+	}
+	base := func() *xorm.Session {
+		return lib.config.Engine.Table(routerName).Limit(20)
+	}
+	var run = base()
+	for _, s := range whereJoin {
+		run = run.Or(s, searchText+"%")
+	}
+
+	result, err = run.QueryString()
+	if err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // 数据修改
