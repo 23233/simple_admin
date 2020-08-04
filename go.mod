@@ -16,6 +16,7 @@ require (
 	github.com/iris-contrib/go.uuid v2.0.0+incompatible
 	github.com/iris-contrib/middleware/jwt v0.0.0-20191219204441-78279b78a367
 	github.com/kataras/iris/v12 v12.1.8
+	github.com/kataras/realip v0.0.1
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/pkg/errors v0.8.1
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
