@@ -67,7 +67,7 @@ func New(c Config) (*SpAdmin, error) {
 
 	// 判断是否启用爬虫监测
 	if c.EnableSpiderWait {
-		c.ModelList = append(c.ModelList, c.spiderModel)
+		c.ModelList = append(c.ModelList, new(SpiderHistory))
 	}
 
 	// 进行sync操作
