@@ -3,9 +3,13 @@ package simple_admin
 import (
 	"fmt"
 	"github.com/kataras/iris/v12"
+	"github.com/kataras/realip"
+	"log"
 	"strconv"
+	"strings"
 )
 
+// 首页
 func Index(ctx iris.Context) {
 	rs := []rune(NowSpAdmin.config.Prefix)
 	ctx.ViewData("prefix", string(rs[1:]))
@@ -349,6 +353,33 @@ func ChangeUserRoles(ctx iris.Context) {
 //func ChangeUserPolicy(ctx iris.Context) {
 //
 //}
+
+// 爬虫监听Middleware
+func SpiderVisitHistoryMiddleware(ctx iris.Context) {
+	// 如果开启了监听
+	if NowSpAdmin.config.EnableSpiderWait {
+		go func() {
+			ua := ctx.GetHeader("User-Agent")
+			// 判断ua是否是爬虫
+			spiderPrefix := []string{"spider", "Spider", "bot", "Bot", "crawler", "trident", "Trident", "Slurp"}
+			for _, prefix := range spiderPrefix {
+				if strings.Contains(ua, prefix) {
+					ip := realip.Get(ctx.Request())
+					var d SpiderHistory
+					d.Ip = ip
+					d.Ua = ua
+					d.Page = ctx.Path()
+					aff, err := NowSpAdmin.config.Engine.InsertOne(&d)
+					if err != nil || aff != 1 {
+						log.Printf("add spider visit history fail %v ", err)
+					}
+					break
+				}
+			}
+		}()
+	}
+	ctx.Next()
+}
 
 // 权限Middleware
 func PolicyValidMiddleware(ctx iris.Context) {

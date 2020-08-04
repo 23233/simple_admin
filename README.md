@@ -91,6 +91,7 @@ app.Listen(":8080")
 - [] full test
 - [] gorm support
 - [] add websocket dashboard
+- [x] add spider visit monitor options enable!
 - [x] custom action 
 - [] fine permission manage
 - [] beat more features

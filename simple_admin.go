@@ -65,6 +65,11 @@ func New(c Config) (*SpAdmin, error) {
 		return nil, err
 	}
 
+	// 判断是否启用爬虫监测
+	if c.EnableSpiderWait {
+		c.ModelList = append(c.ModelList, c.spiderModel)
+	}
+
 	// 进行sync操作
 	if err := c.runSync(); err != nil {
 		return nil, err
@@ -564,6 +569,8 @@ func (lib *SpAdmin) Register() {
 	app.PartyFunc(lib.config.Prefix, lib.Router)
 	// 其他所有操作都重定向
 	app.Get(lib.prefix+"/{root:path}", Index)
+	app.UseGlobal(SpiderVisitHistoryMiddleware)
+
 }
 
 func init() {
