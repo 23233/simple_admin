@@ -31,6 +31,7 @@ type Config struct {
 	UserModelSpecialUniqueName string            // 用户模型唯一名
 	CustomAction               []CustomAction    // 自定义action列表
 	EnableSpiderWait           bool              // 开启爬虫监听
+	SpiderMatchList            []string          // 爬虫ua匹配列表
 }
 
 // 默认用户模型
@@ -73,6 +74,7 @@ func (config *Config) init() Config {
 		UserModelSpecialUniqueName: "simple_admin_user_model",
 		AbridgeName:                "sp",
 		EnableSpiderWait:           true,
+		SpiderMatchList:            []string{"spider", "Spider", "bot", "Bot", "crawler", "trident", "Trident", "Slurp", "craw"},
 	}
 }
 
