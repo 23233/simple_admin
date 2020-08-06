@@ -361,8 +361,7 @@ func SpiderVisitHistoryMiddleware(ctx iris.Context) {
 		go func() {
 			ua := ctx.GetHeader("User-Agent")
 			// 判断ua是否是爬虫
-			spiderPrefix := []string{"spider", "Spider", "bot", "Bot", "crawler", "trident", "Trident", "Slurp", "request", "python", "node", "craw"}
-			for _, prefix := range spiderPrefix {
+			for _, prefix := range NowSpAdmin.config.SpiderMatchList {
 				if strings.Contains(ua, prefix) {
 					ip := realip.Get(ctx.Request())
 					var d SpiderHistory
