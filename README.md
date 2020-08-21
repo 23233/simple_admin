@@ -79,11 +79,26 @@ app.Listen(":8080")
 * the best you do not use custom usermodel , admin isolation is good!
 
 ## model custom tags (sp) now support
+```golang
+example: sp("key:value") sp("key(value)") sp("key('value')")
+```
 * autogen  -> mark columns is code auto generate not handle
+```golang
+sp("autogen")
+```
 * lineTo -> if custom action , default value use this define for select row
+```golang
+sp("lineTo(Id)")
+```
 * fk -> foreign key , support one to tone and many to one , if use multiple is many to one , *just only support id columns , must be have id field !!!* 
-
-
+```golang
+sp("fk('ComplexModelC')") 
+sp("fk('ComplexModelC') multiple")
+```
+* tag -> front show whats ? now support custom tag , default show text , options: img  
+```golang
+sp:"tag(img)"
+```
 
 
 ## todo features

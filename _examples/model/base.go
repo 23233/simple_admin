@@ -89,4 +89,5 @@ type TestUserModel struct {
 type TestStructComplexModel struct {
 	ModelBase `xorm:"extends"`
 	Names     string `xorm:"notnull" json:"names"`
+	Img       string `xorm:"varchar(255)" sp:"tag(img)"`
 }
