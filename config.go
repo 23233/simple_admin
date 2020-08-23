@@ -8,7 +8,6 @@ import (
 	"github.com/casbin/casbin/v2/model"
 	xormadapter "github.com/casbin/xorm-adapter"
 	"github.com/kataras/iris/v12"
-	"github.com/kataras/iris/v12/context"
 	"log"
 	"reflect"
 	"strings"
@@ -58,7 +57,7 @@ type CustomAction struct {
 	Valid   interface{}   `json:"valid"`   // request valid struct
 	Path    string        `json:"path"`    // request path
 	Scope   []interface{} `json:"scope"`   // show where
-	Func    func(ctx context.Context)
+	Func    func(ctx iris.Context)
 }
 
 // 默认配置文件

@@ -549,23 +549,12 @@ func (lib *SpAdmin) changeUserPassword(id uint64, password string) error {
 
 // 注册视图
 func (lib *SpAdmin) Register() {
-	// $ go get -u github.com/go-bindata/go-bindata/...
-	// $ go-bindata ./simple_admin_templates/...
+	// $ go get -u github.com/go-bindata/go-bindata/v3/go-bindata
+	// $ go-bindata -prefix "../simple_admin/assets/" -fs ../simple_admin/assets/...
 	// $ go build
 	app := lib.config.App
 	app.RegisterView(iris.HTML("./simple_admin_templates", ".template").Binary(Asset, AssetNames))
-	app.HandleDir("/simple_admin_static", "./simple_admin_templates", iris.DirOptions{
-		Asset:      Asset,
-		AssetInfo:  AssetInfo,
-		AssetNames: AssetNames,
-		//IndexName:  "index.html", // default.
-		Gzip: true,
-		// If you want to show a list of embedded files when inside a directory without an index file:
-		//ShowList: true,
-		// DirList: func(ctx iris.Context, dirName string, f http.File) error {
-		// 	// [Optional, custom code to show the html list].
-		// }
-	})
+	app.HandleDir("/simple_admin_static", iris.PrefixDir("simple_admin_templates", AssetFile()))
 	app.PartyFunc(lib.config.Prefix, lib.Router)
 	// 其他所有操作都重定向
 	app.Get(lib.prefix+"/{root:path}", Index)
