@@ -4,7 +4,6 @@ import (
 	"github.com/23233/simple_admin"
 	"github.com/23233/simple_admin/_examples/model"
 	"github.com/kataras/iris/v12"
-	"github.com/kataras/iris/v12/context"
 	"github.com/kataras/iris/v12/middleware/logger"
 	"github.com/kataras/iris/v12/middleware/recover"
 	_ "github.com/mattn/go-sqlite3"
@@ -79,7 +78,7 @@ func main() {
 	nameAction.Name = "显示文件名"
 	nameAction.Valid = new(model.CustomReqValid)
 	nameAction.Scope = nameActionScope
-	nameAction.Func = func(ctx context.Context) {
+	nameAction.Func = func(ctx iris.Context) {
 		req := ctx.Values().Get("sv").(*model.CustomReqValid)
 		_, _ = ctx.JSON(iris.Map{"name": req.Name})
 	}
@@ -90,7 +89,7 @@ func main() {
 	complexAction.Name = "复杂action测试"
 	complexAction.Valid = new(model.CustomReqBValid)
 	complexAction.Scope = complexActionScope
-	complexAction.Func = func(ctx context.Context) {
+	complexAction.Func = func(ctx iris.Context) {
 		req := ctx.Values().Get("sv").(*model.CustomReqBValid)
 		_, _ = ctx.JSON(iris.Map{"name": req.Desc})
 	}
