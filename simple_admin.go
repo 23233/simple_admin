@@ -344,14 +344,10 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 }
 
 // 单条数据获取
-func (lib *SpAdmin) SingleData(routerName string, id uint64) (map[string]interface{}, error) {
-	var valuesMap = make(map[string]interface{})
-	has, err := lib.config.Engine.Table(routerName).Where("id = ?", id).Get(&valuesMap)
+func (lib *SpAdmin) SingleData(routerName string, id uint64) ([]map[string]string, error) {
+	valuesMap, err := lib.config.Engine.Table(routerName).Where("id = ?", id).QueryString()
 	if err != nil {
 		return valuesMap, err
-	}
-	if has == false {
-		return valuesMap, MsgLog("not find data")
 	}
 	return valuesMap, nil
 }
