@@ -204,7 +204,11 @@ func GetRouterSingleData(ctx iris.Context) {
 		})
 		return
 	}
-	_, _ = ctx.JSON(data)
+	if len(data) >= 1 {
+		_, _ = ctx.JSON(data[0])
+	} else {
+		_, _ = ctx.JSON(data)
+	}
 }
 
 // 新增数据
