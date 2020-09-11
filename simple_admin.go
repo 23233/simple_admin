@@ -70,18 +70,10 @@ func New(c Config) (*SpAdmin, error) {
 		return nil, err
 	}
 
-	// 判断是否启用爬虫监测
-	if c.EnableSpiderWatch {
-		c.ModelList = append(c.ModelList, new(SpiderHistory))
-	}
-
 	// 进行sync操作
 	if err := c.runSync(); err != nil {
 		return nil, err
 	}
-
-	// 把用户模型合并到模型表格中
-	c.ModelList = append(c.ModelList, c.UserModel)
 
 	// 生成表名列表
 	modelTables := c.generateTables()

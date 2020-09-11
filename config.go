@@ -90,6 +90,12 @@ func (config *Config) initConfig() Config {
 // 表内信息扫描
 func (config *Config) scanTableInfo() {
 	var result []TableInfoList
+	// 判断是否启用爬虫监测
+	if config.EnableSpiderWatch {
+		config.ModelList = append(config.ModelList, new(SpiderHistory))
+	}
+	// 把用户模型合并到模型表格中
+	config.ModelList = append(config.ModelList, config.UserModel)
 	for _, item := range config.ModelList {
 		name := config.Engine.TableName(item)
 		cb, err := config.tableNameReflectFieldsAndTypes(name)
