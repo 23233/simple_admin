@@ -8,6 +8,7 @@ import (
 	"github.com/casbin/casbin/v2/model"
 	xormadapter "github.com/casbin/xorm-adapter"
 	"github.com/kataras/iris/v12"
+	"github.com/pkg/errors"
 	"log"
 	"reflect"
 	"strings"
@@ -20,6 +21,7 @@ type Config struct {
 	Engine                     *xorm.Engine      // xorm engine实例
 	App                        *iris.Application // iris实例
 	ModelList                  []interface{}     // 模型列表
+	modelInfoList              []TableInfoList   //
 	UserModel                  interface{}       // 用户模型
 	RunSync                    bool              // 是否进行sync
 	PageSize                   int               // 每页条数
@@ -28,8 +30,8 @@ type Config struct {
 	InitAdminUserName          string            // 初始管理员用户名 若存在则跳过
 	InitAdminPassword          string            // 初始管理员密码
 	UserModelSpecialUniqueName string            // 用户模型唯一名
-	CustomAction               []CustomAction    // 自定义action列表
-	EnableSpiderWait           bool              // 开启爬虫监听
+	CustomActions              []CustomAction    // 自定义action列表
+	EnableSpiderWatch          bool              // 开启爬虫监听
 	SpiderMatchList            []string          // 爬虫ua匹配列表
 }
 
@@ -52,16 +54,24 @@ type SpiderHistory struct {
 
 // 自定义action
 type CustomAction struct {
-	Name    string        `json:"name"`    // action display name
-	Methods string        `json:"methods"` // request run methods
-	Valid   interface{}   `json:"valid"`   // request valid struct
-	Path    string        `json:"path"`    // request path
-	Scope   []interface{} `json:"scope"`   // show where
-	Func    func(ctx iris.Context)
+	Name     string      `json:"name"`    // action display name
+	Methods  string      `json:"methods"` // request run methods
+	Valid    interface{} `json:"valid"`   // request valid struct
+	Path     string      `json:"path"`    // request path
+	Scope    interface{} `json:"scope"`   // show where
+	Func     func(ctx iris.Context)
+	hasValid bool
+}
+
+// 表信息存储
+type TableInfoList struct {
+	RouterName string          `json:"router_name"`
+	FieldList  TableFieldsResp `json:"field_list"`
+	Actions    []CustomAction  `json:"actions"`
 }
 
 // 默认配置文件
-func (config *Config) init() Config {
+func (config *Config) initConfig() Config {
 	return Config{
 		Name:                       "simpleAdmin",
 		UserModel:                  new(UserModel),
@@ -72,9 +82,27 @@ func (config *Config) init() Config {
 		InitAdminPassword:          "iris_best",
 		UserModelSpecialUniqueName: "simple_admin_user_model",
 		AbridgeName:                "sp",
-		EnableSpiderWait:           true,
+		EnableSpiderWatch:          true,
 		SpiderMatchList:            []string{"spider", "Spider", "bot", "Bot", "crawler", "trident", "Trident", "Slurp", "craw"},
 	}
+}
+
+// 表内信息扫描
+func (config *Config) scanTableInfo() {
+	result := make([]TableInfoList, len(config.ModelList), len(config.ModelList))
+	for _, item := range config.ModelList {
+		name := config.Engine.TableName(item)
+		cb, err := config.tableNameReflectFieldsAndTypes(name)
+		if err != nil {
+			panic(errors.Wrap(err, fmt.Sprintf("初始化扫描表:%s信息出错", name)))
+		}
+		var d TableInfoList
+		d.RouterName = name
+		d.FieldList = cb
+		d.Actions = config.validAction()
+		result = append(result, d)
+	}
+	config.modelInfoList = result
 }
 
 // 验证配置文件
@@ -95,53 +123,71 @@ func (config *Config) valid() error {
 		return MsgLog("please check config , prefix is required")
 	}
 	if config.Prefix[0] != '/' {
-		return MsgLog("please check config , prefix must start with / ")
-	}
-	if len(config.CustomAction) >= 1 {
-		for _, action := range config.CustomAction {
-			if len(action.Scope) < 1 {
-				return MsgLog("please check config, custom action scope is required")
-			}
-			if reflect.ValueOf(action.Valid).IsNil() || len(action.Name) < 1 {
-				return MsgLog("please check config, custom action all fields is required")
-			}
-			if len(action.Path) >= 1 {
-				if strings.HasPrefix(action.Path, "/") == false {
-					return MsgLog("custom action path must be use / start prefix")
-				}
-			}
-		}
+		config.Prefix = "/" + config.Prefix
 	}
 	return nil
 }
 
 // 合并验证自定义action
-func (config *Config) validAction() {
-	var result []CustomAction
-	for _, action := range config.CustomAction {
-		var d CustomAction
-		if len(action.Methods) < 1 {
-			d.Methods = "POST"
-		} else {
-			d.Methods = action.Methods
-		}
-		if len(action.Path) < 1 {
-			d.Path = "p_" + RandStringBytes(6)
-		} else {
-			d.Path = action.Path
-		}
-		d.Name = action.Name
-		d.Valid = action.Valid
+func (config *Config) validAction() []CustomAction {
+	var resultList []CustomAction
+	// 遍历所有表信息
+	for _, item := range config.ModelList {
+		typ := reflect.TypeOf(item)
+		vtp := reflect.Indirect(reflect.ValueOf(item))
+		for i := 0; i < vtp.NumMethod(); i++ {
+			m := vtp.Method(i)
+			tm := typ.Method(i)
+			if !strings.HasPrefix(tm.Name, "SpAction") {
+				continue
+			}
+			// 判断返回值是否正确
+			if tm.Type.NumOut() < 1 {
+				continue
+			}
+			out := tm.Type.Out(0)
+			if out.Kind() != reflect.Struct {
+				continue
+			}
 
-		d.Scope = action.Scope
-		d.Func = action.Func
-		result = append(result, d)
+			result := m.Call(nil)[0]
+
+			actionBase := reflect.TypeOf(new(CustomAction))
+			if actionBase.Kind() == reflect.Ptr {
+				actionBase = actionBase.Elem()
+			}
+
+			var d = reflect.Indirect(reflect.ValueOf(new(CustomAction)))
+			for p := 0; p < actionBase.NumField(); p++ {
+				if reflect.Indirect(d.Field(p)).CanInterface() {
+					var n = actionBase.Field(p).Name
+					reflect.TypeOf(actionBase.Field(p))
+					d.FieldByName(n).Set(result.FieldByName(n))
+				}
+			}
+			var r = d.Interface().(CustomAction)
+			if reflect.Indirect(reflect.ValueOf(r.Func)).IsNil() {
+				name := config.Engine.TableName(item)
+				log.Printf("[%s]自定义%s执行方法验证错误", name, tm.Name)
+				continue
+			}
+			if len(r.Methods) < 1 {
+				r.Methods = "POST"
+			}
+			if len(r.Path) < 1 {
+				r.Path = "p_" + RandStringBytes(6)
+			}
+			r.Scope = item
+			r.hasValid = reflect.ValueOf(r.Valid).IsNil()
+			resultList = append(resultList, r)
+		}
+
 	}
-	config.CustomAction = result
+	return resultList
 }
 
 // 配置文件初始化权限
-func (config *Config) initCasbin() (*casbin.Enforcer, error) {
+func (config *Config) initCasBin() (*casbin.Enforcer, error) {
 	rbac :=
 		`
 		[request_definition]
@@ -166,12 +212,12 @@ func (config *Config) initCasbin() (*casbin.Enforcer, error) {
 	}
 	adapter, err := xormadapter.NewAdapterByEngine(config.Engine)
 	if err != nil {
-		log.Fatalf("init by engine error %s", err)
+		log.Fatalf("initConfig by engine error %s", err)
 		return nil, err
 	}
 	Enforcer, err := casbin.NewEnforcer(m, adapter)
 	if err != nil {
-		log.Fatalf("init to new enforcer error %s", err)
+		log.Fatalf("initConfig to new enforcer error %s", err)
 		return nil, err
 
 	}
@@ -193,10 +239,9 @@ func (config *Config) runSync() error {
 // 通过表名匹配是否有自定义action
 func (config *Config) tableNameCustomActionScopeMatch(routerName string) []CustomActionResp {
 	result := make([]CustomActionResp, 0)
-	for _, action := range config.CustomAction {
-		for _, scope := range action.Scope {
-			tableName := config.Engine.TableName(scope)
-			if tableName == routerName {
+	for _, m := range config.modelInfoList {
+		if routerName == m.RouterName {
+			for _, action := range m.Actions {
 				var d CustomActionResp
 				d.Path = action.Path
 				d.Methods = action.Methods
@@ -206,6 +251,7 @@ func (config *Config) tableNameCustomActionScopeMatch(routerName string) []Custo
 				result = append(result, d)
 			}
 		}
+
 	}
 	return result
 }
@@ -233,11 +279,6 @@ func (config *Config) tableNameToFieldAndTypes(tableName string) (map[string]str
 			for i := 0; i < fieldNum; i++ {
 				f := t.Field(i)
 				n := t.Field(i).Name
-				//// 判断是否为自增主键
-				//x := f.Tag.Get("xorm")
-				//if n == "Id" && len(x) < 1 || strings.Index(x, "autoincr") >= 0 {
-				//	result["autoincr"] = n
-				//}
 				result[n] = f.Type.String()
 			}
 			return result, nil

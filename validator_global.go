@@ -1,5 +1,9 @@
 package simple_admin
 
+type emptyValid struct {
+	N string `json:"n"`
+}
+
 type ConfigResp struct {
 	Name          string `json:"name"`
 	Prefix        string `json:"prefix"`

@@ -150,6 +150,7 @@ func GetRouterFields(ctx iris.Context) {
 //获取单个表的自定义操作
 func GetRouterCustomAction(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
+
 	action := NowSpAdmin.config.tableNameCustomActionScopeMatch(routerName)
 	_, _ = ctx.JSON(action)
 }
@@ -361,7 +362,7 @@ func ChangeUserRoles(ctx iris.Context) {
 // 爬虫监听Middleware
 func SpiderVisitHistoryMiddleware(ctx iris.Context) {
 	// 如果开启了监听
-	if NowSpAdmin.config.EnableSpiderWait {
+	if NowSpAdmin.config.EnableSpiderWatch {
 		go func() {
 			ua := ctx.GetHeader("User-Agent")
 			// 判断ua是否是爬虫
