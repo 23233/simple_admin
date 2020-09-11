@@ -13,7 +13,7 @@ require (
 	github.com/go-playground/locales v0.13.0
 	github.com/go-playground/universal-translator v0.17.0
 	github.com/go-playground/validator/v10 v10.3.0
-	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-sql-driver/mysql v1.5.0
 	github.com/imdario/mergo v0.3.9
 	github.com/iris-contrib/go.uuid v2.0.0+incompatible
 	github.com/iris-contrib/middleware/jwt v0.0.0-20200810001613-32cf668f999f
@@ -23,5 +23,5 @@ require (
 	github.com/mediocregopher/mediocre-go-lib v0.0.0-20181029021733-cb65787f37ed // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
-	xorm.io/xorm v1.0.1
+	xorm.io/xorm v1.0.5
 )
