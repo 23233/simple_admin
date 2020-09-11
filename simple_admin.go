@@ -57,6 +57,8 @@ func New(c Config) (*SpAdmin, error) {
 	if err := c.valid(); err != nil {
 		return nil, err
 	}
+	// 初始化
+	c.scanTableInfo()
 	// 对表进行一次基础信息捕获
 	c.generateTables()
 	// action合并
@@ -319,27 +321,26 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 		return p, err
 	}
 
-	data, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Limit(pageSize).QueryString()
+	dataList, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Limit(pageSize).QueryString()
 	if err != nil {
 		return p, err
 	}
 
 	// 如果是用户表 还需要返回当前的权限
 	// 只有admin 才能请求到用户表
+	cb, err := lib.config.tableNameGetModelInfo(routerName)
+	if err != nil {
+		return p, err
+	}
 	if routerName == lib.config.getUserModelTableName() {
-		model, _ := lib.config.tableNameGetModel(routerName)
-		modelInfo, err := lib.config.Engine.TableInfo(model)
-		if err != nil {
-			return p, err
-		}
-		for i, d := range data {
+		for i, d := range dataList {
 			for k, v := range d {
-				if k == modelInfo.AutoIncrement {
+				if k == cb.FieldList.AutoIncrement {
 					roles, err := lib.casbinEnforcer.GetImplicitRolesForUser(v)
 					if err != nil {
 						return p, err
 					}
-					data[i]["roles"] = strings.Join(roles, ",")
+					dataList[i]["roles"] = strings.Join(roles, ",")
 					break
 				}
 			}
@@ -349,7 +350,7 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 	p.PageSize = pageSize
 	p.Page = page
 	p.All = allCount
-	p.Data = data
+	p.Data = dataList
 	return p, nil
 
 }
@@ -376,12 +377,12 @@ func (lib *SpAdmin) addData(routerName string, data reflect.Value) error {
 // 搜索数据
 func (lib *SpAdmin) searchData(routerName string, searchText string) ([]map[string]string, error) {
 	var result []map[string]string
-	tableInfo, err := lib.config.tableNameReflectFieldsAndTypes(routerName)
+	cb, err := lib.config.tableNameGetModelInfo(routerName)
 	if err != nil {
 		return result, err
 	}
 	whereJoin := make([]string, 0)
-	for _, field := range tableInfo.Fields {
+	for _, field := range cb.FieldList.Fields {
 		whereJoin = append(whereJoin, fmt.Sprintf("`%s` like ?", field.MapName))
 	}
 	base := func() *xorm.Session {
@@ -444,13 +445,31 @@ func (lib *SpAdmin) dataExists(routerName string, id uint64) (bool, error) {
 	return lib.config.Engine.Table(routerName).Where("id = ?", id).Exist()
 }
 
+// 获取内容
+func (lib *SpAdmin) getValue(ctx iris.Context, k string) string {
+	c := ctx.PostValueTrim(k)
+	if len(c) < 1 {
+		c = ctx.FormValue(k)
+	}
+	return c
+}
+
+// 字符串转换成bool
+func parseBool(str string) (bool, error) {
+	switch str {
+	case "1", "t", "T", "true", "TRUE", "True":
+		return true, nil
+	case "0", "f", "F", "false", "FALSE", "False":
+		return false, nil
+	}
+	return false, errors.New("解析出错")
+}
+
 // 对应关系获取
 func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.Value, error) {
 	// 先获取到字段信息
 	model, err := lib.config.tableNameGetModel(routerName)
-	// 拿到字段对应类型
-	fieldTypes := lib.config.tableNameGetNestedStructMaps(reflect.TypeOf(model))
-	modelInfo, err := lib.config.Engine.TableInfo(model)
+	cb, err := lib.config.tableNameGetModelInfo(routerName)
 	if err != nil {
 		return reflect.Value{}, err
 	}
@@ -460,76 +479,67 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 	}
 	newInstance := reflect.New(t)
 
-	for _, column := range modelInfo.Columns() {
-		if column.Name != modelInfo.AutoIncrement {
-			// 找到列信息
-			for _, fieldType := range fieldTypes {
-				if fieldType.MapName == column.Name {
-					f := fieldType.Types
-					xormTags := strings.Split(fieldType.XormTags, " ")
-					if StringsContains(xormTags, "created") || StringsContains(xormTags, "updated") || StringsContains(xormTags, "deleted") {
-						continue
-					}
-					switch f {
-					case "string":
-						d := ctx.PostValue(column.Name)
-						newInstance.Elem().FieldByName(fieldType.Name).SetString(d)
-						continue
-					case "int", "int8", "int16", "int32", "int64", "time.Duration":
-						d, _ := ctx.PostValueInt(column.Name)
-						if d == -1 {
-							d = 0
-						}
-						newInstance.Elem().FieldByName(fieldType.Name).SetInt(int64(d))
-						continue
-					case "uint", "uint8", "uint16", "uint32", "uint64":
-						d, _ := ctx.PostValueInt(column.Name)
-						if d == -1 {
-							d = 0
-						}
-						newInstance.Elem().FieldByName(fieldType.Name).SetUint(uint64(d))
-						continue
-					case "float32", "float64":
-						d, _ := ctx.PostValueFloat64(column.Name)
-						if d == -1 {
-							d = 0
-						}
-						newInstance.Elem().FieldByName(fieldType.Name).SetFloat(d)
-						continue
-					case "bool":
-						d, _ := ctx.PostValueBool(column.Name)
-						newInstance.Elem().FieldByName(fieldType.Name).SetBool(d)
-						continue
-					case "time", "time.Time":
-						d := ctx.PostValue(column.Name)
-						if len(d) < 1 {
-							return reflect.Value{}, errors.Wrap(err, "find time error")
-						}
-						var tt reflect.Value
-						// 判断是否是字符串
-						if IsNum(d) {
-							// 这里需要转换成时间
-							d, err := strconv.ParseInt(d, 10, 64)
-							if err != nil {
-								return reflect.Value{}, errors.Wrap(err, "time change to int error")
-							}
-							tt = reflect.ValueOf(time.Unix(d, 0))
-						} else {
-							formatTime, err := time.ParseInLocation("2006-01-02 15:04:05", d, time.Local)
-							if err != nil {
-								return reflect.Value{}, errors.Wrap(err, "time parse location error")
-							}
-							tt = reflect.ValueOf(formatTime)
-						}
-
-						newInstance.Elem().FieldByName(fieldType.Name).Set(tt)
-						continue
-					}
-
+	for _, column := range cb.FieldList.Fields {
+		if column.MapName != cb.FieldList.AutoIncrement {
+			if column.MapName == cb.FieldList.Updated || column.MapName == cb.FieldList.Deleted {
+				continue
+			}
+			content := NowSpAdmin.getValue(ctx, column.MapName)
+			switch column.Types {
+			case "string":
+				newInstance.Elem().FieldByName(column.Name).SetString(content)
+				continue
+			case "int", "int8", "int16", "int32", "int64", "time.Duration":
+				d, err := strconv.ParseInt(content, 10, 64)
+				if err != nil {
+					log.Printf("解析出int出错")
 				}
+				newInstance.Elem().FieldByName(column.Name).SetInt(d)
+				continue
+			case "uint", "uint8", "uint16", "uint32", "uint64":
+				d, err := strconv.ParseUint(content, 10, 64)
+				if err != nil {
+					log.Println("解析出uint出错")
+				}
+				newInstance.Elem().FieldByName(column.Name).SetUint(d)
+				continue
+			case "float32", "float64":
+				d, err := strconv.ParseFloat(content, 64)
+				if err != nil {
+					log.Println("解析出float出错")
+				}
+				newInstance.Elem().FieldByName(column.Name).SetFloat(d)
+				continue
+			case "bool":
+				d, err := parseBool(content)
+				if err != nil {
+					log.Println("解析出bool出错")
+				}
+				newInstance.Elem().FieldByName(column.Name).SetBool(d)
+				continue
+			case "time", "time.Time":
+				var tt reflect.Value
+				// 判断是否是字符串
+				if IsNum(content) {
+					// 这里需要转换成时间
+					d, err := strconv.ParseInt(content, 10, 64)
+					if err != nil {
+						return reflect.Value{}, errors.Wrap(err, "time change to int error")
+					}
+					tt = reflect.ValueOf(time.Unix(d, 0))
+				} else {
+					formatTime, err := time.ParseInLocation("2006-01-02 15:04:05", content, time.Local)
+					if err != nil {
+						return reflect.Value{}, errors.Wrap(err, "time parse location error")
+					}
+					tt = reflect.ValueOf(formatTime)
+				}
+				newInstance.Elem().FieldByName(column.Name).Set(tt)
+				continue
 			}
 		}
 	}
+
 	return newInstance, nil
 }
 

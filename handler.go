@@ -136,7 +136,7 @@ func GetRouters(ctx iris.Context) {
 func GetRouterFields(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
 
-	fields, err := NowSpAdmin.config.tableNameReflectFieldsAndTypes(routerName)
+	cb, err := NowSpAdmin.config.tableNameGetModelInfo(routerName)
 	if err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{
@@ -144,7 +144,7 @@ func GetRouterFields(ctx iris.Context) {
 		})
 		return
 	}
-	_, _ = ctx.JSON(fields)
+	_, _ = ctx.JSON(cb.FieldList)
 }
 
 //获取单个表的自定义操作

@@ -27,11 +27,12 @@ type structInfo struct {
 }
 
 type TableFieldsResp struct {
-	Fields   []structInfo `json:"fields"`
-	Autoincr string       `json:"autoincr"`
-	Updated  string       `json:"updated"`
-	Deleted  string       `json:"deleted"`
-	Version  string       `json:"version"`
+	Fields        []structInfo    `json:"fields"`
+	AutoIncrement string          `json:"autoincr"`
+	Updated       string          `json:"updated"`
+	Deleted       string          `json:"deleted"`
+	Created       map[string]bool `json:"created"`
+	Version       string          `json:"version"`
 }
 
 type CustomActionResp struct {

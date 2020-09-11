@@ -89,7 +89,7 @@ func (config *Config) initConfig() Config {
 
 // 表内信息扫描
 func (config *Config) scanTableInfo() {
-	result := make([]TableInfoList, len(config.ModelList), len(config.ModelList))
+	var result []TableInfoList
 	for _, item := range config.ModelList {
 		name := config.Engine.TableName(item)
 		cb, err := config.tableNameReflectFieldsAndTypes(name)
@@ -178,7 +178,7 @@ func (config *Config) validAction() []CustomAction {
 				r.Path = "p_" + RandStringBytes(6)
 			}
 			r.Scope = item
-			r.hasValid = reflect.ValueOf(r.Valid).IsNil()
+			r.hasValid = !reflect.ValueOf(r.Valid).IsNil()
 			resultList = append(resultList, r)
 		}
 
@@ -251,47 +251,24 @@ func (config *Config) tableNameCustomActionScopeMatch(routerName string) []Custo
 				result = append(result, d)
 			}
 		}
-
 	}
 	return result
 }
 
 // 模型表名序列生成
 func (config *Config) generateTables() []string {
-	tables := make([]string, 0, len(config.ModelList))
-	for _, item := range config.ModelList {
-		tableName := config.Engine.TableName(item)
-		tables = append(tables, tableName)
+	tables := make([]string, 0, len(config.modelInfoList))
+	for _, item := range config.modelInfoList {
+		tables = append(tables, item.RouterName)
 	}
 	return tables
-}
-
-// 通过模型名获取模型信息
-func (config *Config) tableNameToFieldAndTypes(tableName string) (map[string]string, error) {
-	for _, item := range config.ModelList {
-		if config.Engine.TableName(item) == tableName {
-			t := reflect.TypeOf(item)
-			if t.Kind() == reflect.Ptr {
-				t = t.Elem()
-			}
-			fieldNum := t.NumField()
-			result := make(map[string]string, fieldNum)
-			for i := 0; i < fieldNum; i++ {
-				f := t.Field(i)
-				n := t.Field(i).Name
-				result[n] = f.Type.String()
-			}
-			return result, nil
-		}
-	}
-	return nil, MsgLog(fmt.Sprintf("not find this table %s", tableName))
 }
 
 // 通过模型反射模型信息
 func (config *Config) tableNameReflectFieldsAndTypes(tableName string) (TableFieldsResp, error) {
 	for _, item := range config.ModelList {
 		if config.Engine.TableName(item) == tableName {
-			modelInfo, err := NowSpAdmin.config.Engine.TableInfo(item)
+			modelInfo, err := config.Engine.TableInfo(item)
 			if err != nil {
 				return TableFieldsResp{}, nil
 			}
@@ -299,9 +276,10 @@ func (config *Config) tableNameReflectFieldsAndTypes(tableName string) (TableFie
 			// 获取三要素
 			values := config.tableNameGetNestedStructMaps(reflect.TypeOf(item))
 			resp.Fields = values
-			resp.Autoincr = modelInfo.AutoIncrement
+			resp.AutoIncrement = modelInfo.AutoIncrement
 			resp.Version = modelInfo.Version
 			resp.Deleted = modelInfo.Deleted
+			resp.Created = modelInfo.Created
 			resp.Updated = modelInfo.Updated
 			return resp, nil
 		}
@@ -365,6 +343,16 @@ func (config *Config) tableNameGetModel(tableName string) (interface{}, error) {
 		}
 	}
 	return nil, MsgLog("not find table")
+}
+
+// 通过模型名获取模型信息
+func (config *Config) tableNameGetModelInfo(tableName string) (TableInfoList, error) {
+	for _, l := range config.modelInfoList {
+		if l.RouterName == tableName {
+			return l, nil
+		}
+	}
+	return TableInfoList{}, errors.New("not found model")
 }
 
 // 获取用户表
