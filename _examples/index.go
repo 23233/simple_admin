@@ -72,38 +72,13 @@ func main() {
 		new(model.TestStructComplexModel),
 	}
 
-	var nameAction simple_admin.CustomAction
-	var nameActionScope []interface{}
-	nameActionScope = append(nameActionScope, new(model.TestModelA))
-	nameAction.Name = "显示文件名"
-	nameAction.Valid = new(model.CustomReqValid)
-	nameAction.Scope = nameActionScope
-	nameAction.Func = func(ctx iris.Context) {
-		req := ctx.Values().Get("sv").(*model.CustomReqValid)
-		_, _ = ctx.JSON(iris.Map{"name": req.Name})
-	}
-
-	var complexAction simple_admin.CustomAction
-	var complexActionScope []interface{}
-	complexActionScope = append(complexActionScope, new(model.TestModelB))
-	complexAction.Name = "复杂action测试"
-	complexAction.Valid = new(model.CustomReqBValid)
-	complexAction.Scope = complexActionScope
-	complexAction.Func = func(ctx iris.Context) {
-		req := ctx.Values().Get("sv").(*model.CustomReqBValid)
-		_, _ = ctx.JSON(iris.Map{"name": req.Desc})
-	}
-
-	var customAction []simple_admin.CustomAction
-	customAction = append(customAction, nameAction, complexAction)
 	_, err := simple_admin.New(simple_admin.Config{
-		Engine:       Engine,
-		App:          app,
-		ModelList:    modelList,
-		Name:         "测试sync",
-		RunSync:      true,
-		Prefix:       "/admin",
-		CustomAction: customAction,
+		Engine:    Engine,
+		App:       app,
+		ModelList: modelList,
+		Name:      "测试sync",
+		RunSync:   true,
+		Prefix:    "/admin",
 	})
 	if err != nil {
 		panic(err)

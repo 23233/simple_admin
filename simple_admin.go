@@ -49,24 +49,27 @@ func (lib *SpAdmin) errorLog(err error, msg string) error {
 
 func New(c Config) (*SpAdmin, error) {
 	// 合并配置文件
-	init := new(Config).init()
-	if err := mergo.Map(&c, init); err != nil {
+	newConf := new(Config).initConfig()
+	if err := mergo.Map(&c, newConf); err != nil {
 		return nil, err
 	}
+	// 进行初始化处理
 	if err := c.valid(); err != nil {
 		return nil, err
 	}
+	// 对表进行一次基础信息捕获
+	c.generateTables()
 	// action合并
 	c.validAction()
 
 	// 进行初始化权限系统
-	enforcer, err := c.initCasbin()
+	enforcer, err := c.initCasBin()
 	if err != nil {
 		return nil, err
 	}
 
 	// 判断是否启用爬虫监测
-	if c.EnableSpiderWait {
+	if c.EnableSpiderWatch {
 		c.ModelList = append(c.ModelList, new(SpiderHistory))
 	}
 
@@ -114,7 +117,7 @@ func New(c Config) (*SpAdmin, error) {
 	// 初始化管理员
 	_, err = NowSpAdmin.addUser(c.InitAdminUserName, c.InitAdminPassword, NowSpAdmin.defaultRole["admin"])
 	if err != nil {
-		log.Printf("init admin user fail: %s", err.Error())
+		log.Printf("initConfig admin user fail: %s", err.Error())
 	}
 
 	return NowSpAdmin, nil
@@ -153,8 +156,16 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	// 权限相关
 	c.Post("/change_user_role", PolicyRequireAdminMiddleware, sv.Run(new(UserChangeRolesReq)), ChangeUserRoles)
 	// 进行自定义action绑定
-	for _, action := range lib.config.CustomAction {
-		c.Handle(action.Methods, action.Path, sv.Run(action.Valid), action.Func)
+	for _, m := range lib.config.modelInfoList {
+		if len(m.Actions) >= 1 {
+			for _, action := range m.Actions {
+				if action.hasValid == false {
+					c.Handle(action.Methods, action.Path, action.Func)
+				} else {
+					c.Handle(action.Methods, action.Path, sv.Run(action.Valid), action.Func)
+				}
+			}
+		}
 	}
 }
 
@@ -246,7 +257,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 			// 来宾只能登录
 			_, err := lib.casbinEnforcer.AddPermissionForUser(role, lib.sitePolicy["login_site"], "POST")
 			if err != nil {
-				return MsgLog(fmt.Sprintf("init guest role fail %s", err))
+				return MsgLog(fmt.Sprintf("initConfig guest role fail %s", err))
 			}
 			break
 		case "staff":
@@ -256,7 +267,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 				if rule != nil {
 					_, err := lib.casbinEnforcer.AddPermissionForUser(role, rule[1], rule[2])
 					if err != nil {
-						return MsgLog(fmt.Sprintf("init staff role fail %s", err))
+						return MsgLog(fmt.Sprintf("initConfig staff role fail %s", err))
 					}
 				}
 			}
@@ -268,7 +279,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 				if rule != nil {
 					_, err := lib.casbinEnforcer.AddPermissionForUser(role, rule[1], rule[2])
 					if err != nil {
-						return MsgLog(fmt.Sprintf("init admin role fail %s", err))
+						return MsgLog(fmt.Sprintf("initConfig admin role fail %s", err))
 					}
 				}
 			}
@@ -276,7 +287,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 			for _, value := range lib.defaultMethods {
 				_, err := lib.casbinEnforcer.AddPermissionForUser(role, lib.sitePolicy["user_manage"], value)
 				if err != nil {
-					return MsgLog(fmt.Sprintf("init admin user manage fail  %s", err))
+					return MsgLog(fmt.Sprintf("initConfig admin user manage fail  %s", err))
 				}
 			}
 

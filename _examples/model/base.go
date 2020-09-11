@@ -1,7 +1,9 @@
 package model
 
 import (
+	"github.com/23233/simple_admin"
 	uuid "github.com/iris-contrib/go.uuid"
+	iris "github.com/kataras/iris/v12"
 	"strings"
 	"time"
 )
@@ -31,6 +33,18 @@ func GenUUid() string {
 type TestModelA struct {
 	Id   uint64 `xorm:"autoincr pk unique" json:"id"`
 	Name string `xorm:"varchar(20)"`
+}
+
+// 自定义action
+func (u TestModelA) SpAction() simple_admin.CustomAction {
+	var d simple_admin.CustomAction
+	d.Name = "测试action"
+	d.Valid = new(CustomReqValid)
+	d.Func = func(ctx iris.Context) {
+		req := ctx.Values().Get("sv").(*CustomReqValid)
+		_, _ = ctx.JSON(iris.Map{"name": req.Name})
+	}
+	return d
 }
 
 type CustomReqValid struct {
