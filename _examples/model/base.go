@@ -32,7 +32,7 @@ func GenUUid() string {
 
 type TestModelA struct {
 	Id   uint64 `xorm:"autoincr pk unique" json:"id"`
-	Name string `xorm:"varchar(20)"`
+	Name string `xorm:"varchar(20)" comment:"名称"`
 }
 
 // 自定义action
