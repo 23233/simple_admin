@@ -559,11 +559,11 @@ func (lib *SpAdmin) changeUserPassword(id uint64, password string) error {
 // 注册视图
 func (lib *SpAdmin) Register() {
 	// $ go get -u github.com/go-bindata/go-bindata/v3/go-bindata
-	// $ go-bindata -prefix "../simple_admin/assets/" -fs ../simple_admin/assets/...
+	// $ go-bindata -o bindata.go -pkg simple_admin -nomemcopy -fs -prefix "simple_admin_templates" ./simple_admin_templates/...
 	// $ go build
 	app := lib.config.App
-	app.RegisterView(iris.HTML("./simple_admin_templates", ".template").Binary(Asset, AssetNames))
-	app.HandleDir("/simple_admin_static", iris.PrefixDir("simple_admin_templates", AssetFile()))
+	app.RegisterView(iris.HTML(AssetFile(), ".template"))
+	app.HandleDir("/simple_admin_static", AssetFile())
 	app.PartyFunc(lib.config.Prefix, lib.Router)
 	// 其他所有操作都重定向
 	app.Get(lib.prefix+"/{root:path}", Index)
