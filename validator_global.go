@@ -6,6 +6,11 @@ type ConfigResp struct {
 	UserModelName string `json:"user_model_name"`
 }
 
+type GetAllTableNameResp struct {
+	Tables  map[string]string `json:"tables"`
+	Remarks map[string]string `json:"remarks"`
+}
+
 type DeleteReq struct {
 	Ids string `json:"ids" form:"ids" comment:"标识符列表" validate:"required,min=1"`
 }

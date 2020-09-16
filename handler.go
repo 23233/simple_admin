@@ -108,11 +108,14 @@ func GetCurrentUser(ctx iris.Context) {
 // 获取所有表名
 func GetRouters(ctx iris.Context) {
 	uid := ctx.Values().Get("uid").(string)
-	result := make(map[string]string, 0)
-	// 获取所有表名
-	for _, table := range NowSpAdmin.modelTables {
+
+	var result GetAllTableNameResp
+
+	var names = make(map[string]string, 0)
+	var remarks = make(map[string]string, 0)
+	for _, m := range NowSpAdmin.config.modelInfoList {
 		// 判断是否有读取权限
-		has, err := NowSpAdmin.casbinEnforcer.Enforce(uid, table, NowSpAdmin.defaultMethods["GET"])
+		has, err := NowSpAdmin.casbinEnforcer.Enforce(uid, m.RouterName, NowSpAdmin.defaultMethods["GET"])
 		if err != nil {
 			ctx.StatusCode(iris.StatusBadRequest)
 			_, _ = ctx.JSON(iris.Map{
@@ -122,13 +125,21 @@ func GetRouters(ctx iris.Context) {
 		}
 		if has == true {
 			// 判断是否是用户模型
-			if table == NowSpAdmin.sitePolicy["user_manage"] {
-				result[NowSpAdmin.config.UserModelSpecialUniqueName] = table
+			if m.RouterName == NowSpAdmin.sitePolicy["user_manage"] {
+				names[NowSpAdmin.config.UserModelSpecialUniqueName] = m.RouterName
+				remarks[NowSpAdmin.config.UserModelSpecialUniqueName] = "后台用户表"
 			} else {
-				result[table] = table
+				names[m.RouterName] = m.RouterName
+				if len(m.RemarkName) >= 1 {
+					remarks[m.RouterName] = m.RemarkName
+				} else {
+					remarks[m.RouterName] = m.RouterName
+				}
 			}
 		}
 	}
+	result.Tables = names
+	result.Remarks = remarks
 	_, _ = ctx.JSON(result)
 }
 
