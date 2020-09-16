@@ -35,6 +35,18 @@ type TestModelA struct {
 	Name string `xorm:"varchar(20)" comment:"名称"`
 }
 
+func (u *TestModelA) Remark() string {
+	return "赵日天"
+}
+
+func (u *TestModelA) SpInsertBefore() {
+	println("插入之前")
+}
+
+func (u *TestModelA) SpInsertAfter() {
+	println("插入之后")
+}
+
 // 自定义action
 func (u TestModelA) SpAction() simple_admin.CustomAction {
 	var d simple_admin.CustomAction

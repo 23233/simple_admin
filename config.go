@@ -16,12 +16,47 @@ import (
 	"xorm.io/xorm"
 )
 
+// 插入之前
+type SpInsertBeforeProcess interface {
+	SpInsertBefore()
+}
+
+// 插入之后
+type SpInsertAfterProcess interface {
+	SpInsertAfter()
+}
+
+// 更新之前
+type SpUpdateBeforeProcess interface {
+	SpUpdateBefore()
+}
+
+// 更新之后
+type SpUpdateAfterProcess interface {
+	SpUpdateAfter()
+}
+
+// 删除之前
+type SpDeleteBeforeProcess interface {
+	SpDeleteBefore(uint64)
+}
+
+// 删除之后
+type SpDeleteAfterProcess interface {
+	SpDeleteAfter(uint64)
+}
+
+// 表别名
+type SpTableNameProcess interface {
+	Remark() string
+}
+
 type Config struct {
 	Name                       string            // 后台显示名称
 	Engine                     *xorm.Engine      // xorm engine实例
 	App                        *iris.Application // iris实例
 	ModelList                  []interface{}     // 模型列表
-	modelInfoList              []TableInfoList   //
+	modelInfoList              []TableInfoList   // 表信息列表
 	UserModel                  interface{}       // 用户模型
 	RunSync                    bool              // 是否进行sync
 	PageSize                   int               // 每页条数
@@ -38,9 +73,9 @@ type Config struct {
 // 默认用户模型
 type UserModel struct {
 	Id       uint64 `xorm:"autoincr pk unique" json:"id"`
-	UserName string `xorm:"varchar(60) notnull unique index" json:"username"`
-	Password string `xorm:"varchar(100) notnull" json:"password"`
-	Salt     string `xorm:"varchar(40) notnull" json:"salt"`
+	UserName string `xorm:"varchar(60) notnull unique index" comment:"用户名" json:"username"`
+	Password string `xorm:"varchar(100) notnull" comment:"密码" json:"password"`
+	Salt     string `xorm:"varchar(40) notnull" comment:"加密salt" json:"salt"`
 }
 
 // 模型爬虫监听模型
@@ -66,6 +101,7 @@ type CustomAction struct {
 // 表信息存储
 type TableInfoList struct {
 	RouterName string          `json:"router_name"`
+	RemarkName string          `json:"remark_name"`
 	FieldList  TableFieldsResp `json:"field_list"`
 	Actions    []CustomAction  `json:"actions"`
 }
@@ -103,9 +139,12 @@ func (config *Config) scanTableInfo() {
 			panic(errors.Wrap(err, fmt.Sprintf("初始化扫描表:%s信息出错", name)))
 		}
 		var d TableInfoList
+		if processor, ok := item.(SpTableNameProcess); ok {
+			d.RemarkName = processor.Remark()
+		}
 		d.RouterName = name
 		d.FieldList = cb
-		d.Actions = config.validAction()
+		d.Actions = config.validAction(item)
 		result = append(result, d)
 	}
 	config.modelInfoList = result
@@ -135,60 +174,57 @@ func (config *Config) valid() error {
 }
 
 // 合并验证自定义action
-func (config *Config) validAction() []CustomAction {
+func (config *Config) validAction(item interface{}) []CustomAction {
 	var resultList []CustomAction
-	// 遍历所有表信息
-	for _, item := range config.ModelList {
-		typ := reflect.TypeOf(item)
-		vtp := reflect.Indirect(reflect.ValueOf(item))
-		for i := 0; i < vtp.NumMethod(); i++ {
-			m := vtp.Method(i)
-			tm := typ.Method(i)
-			if !strings.HasPrefix(tm.Name, "SpAction") {
-				continue
-			}
-			// 判断返回值是否正确
-			if tm.Type.NumOut() < 1 {
-				continue
-			}
-			out := tm.Type.Out(0)
-			if out.Kind() != reflect.Struct {
-				continue
-			}
-
-			result := m.Call(nil)[0]
-
-			actionBase := reflect.TypeOf(new(CustomAction))
-			if actionBase.Kind() == reflect.Ptr {
-				actionBase = actionBase.Elem()
-			}
-
-			var d = reflect.Indirect(reflect.ValueOf(new(CustomAction)))
-			for p := 0; p < actionBase.NumField(); p++ {
-				if reflect.Indirect(d.Field(p)).CanInterface() {
-					var n = actionBase.Field(p).Name
-					reflect.TypeOf(actionBase.Field(p))
-					d.FieldByName(n).Set(result.FieldByName(n))
-				}
-			}
-			var r = d.Interface().(CustomAction)
-			if reflect.Indirect(reflect.ValueOf(r.Func)).IsNil() {
-				name := config.Engine.TableName(item)
-				log.Printf("[%s]自定义%s执行方法验证错误", name, tm.Name)
-				continue
-			}
-			if len(r.Methods) < 1 {
-				r.Methods = "POST"
-			}
-			if len(r.Path) < 1 {
-				r.Path = "p_" + RandStringBytes(6)
-			}
-			r.Scope = item
-			r.hasValid = !reflect.ValueOf(r.Valid).IsNil()
-			resultList = append(resultList, r)
+	typ := reflect.TypeOf(item)
+	vtp := reflect.ValueOf(item)
+	for i := 0; i < vtp.NumMethod(); i++ {
+		m := vtp.Method(i)
+		tm := typ.Method(i)
+		if !strings.HasPrefix(tm.Name, "SpAction") {
+			continue
+		}
+		// 判断返回值是否正确
+		if tm.Type.NumOut() < 1 {
+			continue
+		}
+		out := tm.Type.Out(0)
+		if out.Kind() != reflect.Struct {
+			continue
 		}
 
+		result := m.Call(nil)[0]
+
+		actionBase := reflect.TypeOf(new(CustomAction))
+		if actionBase.Kind() == reflect.Ptr {
+			actionBase = actionBase.Elem()
+		}
+
+		var d = reflect.Indirect(reflect.ValueOf(new(CustomAction)))
+		for p := 0; p < actionBase.NumField(); p++ {
+			if reflect.Indirect(d.Field(p)).CanInterface() {
+				var n = actionBase.Field(p).Name
+				reflect.TypeOf(actionBase.Field(p))
+				d.FieldByName(n).Set(result.FieldByName(n))
+			}
+		}
+		var r = d.Interface().(CustomAction)
+		if reflect.Indirect(reflect.ValueOf(r.Func)).IsNil() {
+			name := config.Engine.TableName(item)
+			log.Printf("[%s]自定义%s执行方法验证错误", name, tm.Name)
+			continue
+		}
+		if len(r.Methods) < 1 {
+			r.Methods = "POST"
+		}
+		if len(r.Path) < 1 {
+			r.Path = "p_" + RandStringBytes(6)
+		}
+		r.Scope = item
+		r.hasValid = !reflect.ValueOf(r.Valid).IsNil()
+		resultList = append(resultList, r)
 	}
+
 	return resultList
 }
 

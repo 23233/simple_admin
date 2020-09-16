@@ -61,8 +61,6 @@ func New(c Config) (*SpAdmin, error) {
 	c.scanTableInfo()
 	// 对表进行一次基础信息捕获
 	c.generateTables()
-	// action合并
-	c.validAction()
 
 	// 进行初始化权限系统
 	enforcer, err := c.initCasBin()
@@ -358,11 +356,89 @@ func (lib *SpAdmin) SingleData(routerName string, id uint64) ([]map[string]strin
 
 // 新增数据
 func (lib *SpAdmin) addData(routerName string, data reflect.Value) error {
-	uid, err := lib.config.Engine.Table(routerName).InsertOne(data.Interface())
-	if uid == 0 || err != nil {
+	singleData := data.Interface()
+
+	// 插入之前的事件
+	if processor, ok := singleData.(SpInsertBeforeProcess); ok {
+		processor.SpInsertBefore()
+	}
+
+	aff, err := lib.config.Engine.Table(routerName).InsertOne(singleData)
+	if aff == 0 || err != nil {
 		return MsgLog(fmt.Sprintf("insert data fail %s", err))
 	}
+
+	// 插入之后的事件
+	if processor, ok := singleData.(SpInsertAfterProcess); ok {
+		processor.SpInsertAfter()
+	}
+
 	// 获取
+	return nil
+}
+
+// 数据修改
+func (lib *SpAdmin) editData(routerName string, id uint64, data reflect.Value) error {
+	singleData := data.Interface()
+
+	// 更新之前的事件
+	if processor, ok := singleData.(SpUpdateBeforeProcess); ok {
+		processor.SpUpdateBefore()
+	}
+
+	// 默认只更新非空和非0的字段 xorm的规则
+	// 所以这里启动全量更新 传入数据必须为全量
+	aff, err := lib.config.Engine.Table(routerName).ID(id).AllCols().Update(singleData)
+	if aff == 0 || err != nil {
+		return MsgLog(fmt.Sprintf("edit data fail %s id:%d router:%s", err, id, routerName))
+	}
+
+	// 更新之后的事件
+	if processor, ok := singleData.(SpUpdateAfterProcess); ok {
+		processor.SpUpdateAfter()
+	}
+
+	// 获取
+	return nil
+}
+
+// 数据删除
+func (lib *SpAdmin) deleteData(routerName string, id uint64) error {
+
+	// 更新之前的事件
+	model, _ := lib.config.tableNameGetModel(routerName)
+	if processor, ok := model.(SpDeleteBeforeProcess); ok {
+		processor.SpDeleteBefore(id)
+	}
+
+	affected, err := lib.config.Engine.Exec(fmt.Sprintf("delete from %s where id = ?", routerName), id)
+	if err != nil {
+		return err
+	}
+	obj, err := affected.RowsAffected()
+
+	if obj < 1 {
+		return MsgLog("delete data fail ")
+	}
+
+	if processor, ok := model.(SpDeleteAfterProcess); ok {
+		processor.SpDeleteAfter(id)
+	}
+
+	return nil
+}
+
+// 批量数据删除
+func (lib *SpAdmin) bulkDeleteData(routerName string, ids string) error {
+	affected, err := lib.config.Engine.Exec(fmt.Sprintf("delete from %s where id in (%s)", routerName, ids))
+	if err != nil {
+		return err
+	}
+	obj, err := affected.RowsAffected()
+
+	if obj < 1 {
+		return MsgLog("delete data fail ")
+	}
 	return nil
 }
 
@@ -390,46 +466,6 @@ func (lib *SpAdmin) searchData(routerName string, searchText string) ([]map[stri
 		return result, err
 	}
 	return result, nil
-}
-
-// 数据修改
-func (lib *SpAdmin) editData(routerName string, id uint64, data reflect.Value) error {
-	// 默认只更新非空和非0的字段 xorm的规则
-	// 所以这里启动全量更新 传入数据必须为全量
-	aff, err := lib.config.Engine.Table(routerName).ID(id).AllCols().Update(data.Interface())
-	if aff == 0 || err != nil {
-		return MsgLog(fmt.Sprintf("edit data fail %s id:%d router:%s", err, id, routerName))
-	}
-	// 获取
-	return nil
-}
-
-// 数据删除
-func (lib *SpAdmin) deleteData(routerName string, id uint64) error {
-	affected, err := lib.config.Engine.Exec(fmt.Sprintf("delete from %s where id = ?", routerName), id)
-	if err != nil {
-		return err
-	}
-	obj, err := affected.RowsAffected()
-
-	if obj < 1 {
-		return MsgLog("delete data fail ")
-	}
-	return nil
-}
-
-// 批量数据删除
-func (lib *SpAdmin) bulkDeleteData(routerName string, ids string) error {
-	affected, err := lib.config.Engine.Exec(fmt.Sprintf("delete from %s where id in (%s)", routerName, ids))
-	if err != nil {
-		return err
-	}
-	obj, err := affected.RowsAffected()
-
-	if obj < 1 {
-		return MsgLog("delete data fail ")
-	}
-	return nil
 }
 
 // 判断数据是否存在

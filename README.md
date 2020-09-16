@@ -100,12 +100,23 @@ sp("fk('ComplexModelC') multiple")
 sp:"tag(img)"
 ```
 
+## event support 
+* SpInsertBefore
+* SpInsertAfter
+* SpUpdateBefore
+* SpUpdateAfter
+* SpDeleteBefore(id uint64)  // because delete use unscoped methods so this func receive a uint64 type params
+* SpDeleteAfter(id uint64)  // because delete use unscoped methods so this func receive a uint64 type params
+
+## custom action
+* func name must use SpAction , just like SpAction() SpAction123() is ok , must return simple_admin.CustomAction struct !
 
 ## todo features
 - [] more futures support: data filter , simple custom action ...
 - [] full test
 - [] gorm support
 - [] add websocket dashboard
+- [x] simple event monitor
 - [x] add spider visit monitor options enable!
 - [x] custom action 
 - [] fine permission manage
