@@ -476,6 +476,18 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 			if column.MapName == cb.FieldList.Updated || column.MapName == cb.FieldList.Deleted {
 				continue
 			}
+			if len(cb.FieldList.Created) >= 1 {
+				var equal = false
+				for k, _ := range cb.FieldList.Created {
+					if column.MapName == k {
+						equal = true
+						break
+					}
+				}
+				if equal {
+					continue
+				}
+			}
 			content := NowSpAdmin.getValue(ctx, column.MapName)
 			switch column.Types {
 			case "string":
