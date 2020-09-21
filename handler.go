@@ -410,7 +410,7 @@ func PolicyValidMiddleware(ctx iris.Context) {
 		return
 	}
 	if has == false {
-		ctx.StatusCode(iris.StatusUnauthorized)
+		ctx.StatusCode(iris.StatusMethodNotAllowed)
 		_, _ = ctx.JSON(iris.Map{
 			"detail": "no permission to proceed",
 		})
