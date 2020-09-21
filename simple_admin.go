@@ -610,8 +610,8 @@ func (lib *SpAdmin) Register() {
 	// $ go-bindata -o bindata.go -pkg simple_admin -prefix "simple_admin_templates" -fs ./simple_admin_templates/...
 	// $ go build
 	app := lib.config.App
-	app.RegisterView(iris.HTML("./simple_admin_templates", ".template"))
-	app.HandleDir("/simple_admin_static", iris.Dir("./simple_admin_templates"))
+	app.RegisterView(iris.HTML(AssetFile(), ".template"))
+	app.HandleDir("/simple_admin_static", AssetFile())
 	app.PartyFunc(lib.config.Prefix, lib.Router)
 	// 其他所有操作都重定向
 	app.Get(lib.prefix+"/{root:path}", Index)
