@@ -7,104 +7,12 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	xormadapter "github.com/casbin/xorm-adapter"
-	"github.com/kataras/iris/v12"
 	"github.com/pkg/errors"
 	"log"
 	"reflect"
 	"strings"
 	"time"
-	"xorm.io/xorm"
 )
-
-// 插入之前
-type SpInsertBeforeProcess interface {
-	SpInsertBefore()
-}
-
-// 插入之后
-type SpInsertAfterProcess interface {
-	SpInsertAfter()
-}
-
-// 更新之前
-type SpUpdateBeforeProcess interface {
-	SpUpdateBefore()
-}
-
-// 更新之后
-type SpUpdateAfterProcess interface {
-	SpUpdateAfter()
-}
-
-// 删除之前
-type SpDeleteBeforeProcess interface {
-	SpDeleteBefore(uint64)
-}
-
-// 删除之后
-type SpDeleteAfterProcess interface {
-	SpDeleteAfter(uint64)
-}
-
-// 表别名
-type SpTableNameProcess interface {
-	Remark() string
-}
-
-type Config struct {
-	Name                       string            // 后台显示名称
-	Engine                     *xorm.Engine      // xorm engine实例
-	App                        *iris.Application // iris实例
-	ModelList                  []interface{}     // 模型列表
-	modelInfoList              []TableInfoList   // 表信息列表
-	UserModel                  interface{}       // 用户模型
-	RunSync                    bool              // 是否进行sync
-	PageSize                   int               // 每页条数
-	AbridgeName                string            // tag的解析名称
-	Prefix                     string            // 前缀
-	InitAdminUserName          string            // 初始管理员用户名 若存在则跳过
-	InitAdminPassword          string            // 初始管理员密码
-	UserModelSpecialUniqueName string            // 用户模型唯一名
-	CustomActions              []CustomAction    // 自定义action列表
-	EnableSpiderWatch          bool              // 开启爬虫监听
-	SpiderMatchList            []string          // 爬虫ua匹配列表
-}
-
-// 默认用户模型
-type UserModel struct {
-	Id       uint64 `xorm:"autoincr pk unique" json:"id"`
-	UserName string `xorm:"varchar(60) notnull unique index" comment:"用户名" json:"username"`
-	Password string `xorm:"varchar(100) notnull" comment:"密码" json:"password"`
-	Salt     string `xorm:"varchar(40) notnull" comment:"加密salt" json:"salt"`
-}
-
-// 模型爬虫监听模型
-type SpiderHistory struct {
-	Id         uint64    `xorm:"autoincr pk unique" json:"id"`
-	CreateTime time.Time `xorm:"created index" json:"create_time"`
-	Ip         string    `xorm:"varchar(15)" json:"ip"`
-	Ua         string    `xorm:"varchar(150)" json:"ua"`
-	Page       string    `xorm:"varchar(150)" json:"page"` // 访问路径
-}
-
-// 自定义action
-type CustomAction struct {
-	Name     string      `json:"name"`    // action display name
-	Methods  string      `json:"methods"` // request run methods
-	Valid    interface{} `json:"valid"`   // request valid struct
-	Path     string      `json:"path"`    // request path
-	Scope    interface{} `json:"scope"`   // show where
-	Func     func(ctx iris.Context)
-	hasValid bool
-}
-
-// 表信息存储
-type TableInfoList struct {
-	RouterName string          `json:"router_name"`
-	RemarkName string          `json:"remark_name"`
-	FieldList  TableFieldsResp `json:"field_list"`
-	Actions    []CustomAction  `json:"actions"`
-}
 
 // 默认配置文件
 func (config *Config) initConfig() Config {
@@ -230,28 +138,12 @@ func (config *Config) validAction(item interface{}) []CustomAction {
 
 // 配置文件初始化权限
 func (config *Config) initCasBin() (*casbin.Enforcer, error) {
-	rbac :=
-		`
-		[request_definition]
-		r = sub, obj, act
-		
-		[policy_definition]
-		p = sub, obj, act
-		
-		[role_definition]
-		g = _, _
-		
-		[policy_effect]
-		e = some(where (p.eft == allow))
-		
-		[matchers]
-		m = g(r.sub, p.sub) && keyMatch3(r.obj, p.obj) && (r.act == p.act || p.act == "*")
-		`
-	m, err := model.NewModelFromString(rbac)
-	if err != nil {
-		log.Fatalf("load model from string demo error %s", err)
-		return nil, err
-	}
+	m := model.NewModel()
+	m.AddDef("r", "r", "sub, obj, act")
+	m.AddDef("p", "p", "sub, obj, act")
+	m.AddDef("g", "g", "_, _")
+	m.AddDef("e", "e", "some(where (p.eft == allow))")
+	m.AddDef("m", "m", `g(r.sub, p.sub) && keyMatch3(r.obj, p.obj) && (r.act == p.act || p.act == "*")`)
 	adapter, err := xormadapter.NewAdapterByEngine(config.Engine)
 	if err != nil {
 		log.Fatalf("initConfig by engine error %s", err)

@@ -31,18 +31,6 @@ type SpAdmin struct {
 	prefix         string
 }
 
-type Policy struct {
-	Path   string `json:"path"`
-	Method string `json:"method"`
-}
-
-type PagResult struct {
-	All      int64               `json:"all"`
-	Page     int                 `json:"page"`
-	PageSize int                 `json:"page_size"`
-	Data     []map[string]string `json:"data"`
-}
-
 func (lib *SpAdmin) errorLog(err error, msg string) error {
 	return errors.Wrap(err, msg)
 }
