@@ -616,7 +616,6 @@ func (lib *SpAdmin) Register() {
 	// 其他所有操作都重定向
 	app.Get(lib.prefix+"/{root:path}", Index)
 	app.UseGlobal(SpiderVisitHistoryMiddleware)
-
 }
 
 func init() {
