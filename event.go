@@ -32,5 +32,5 @@ type SpDeleteAfterProcess interface {
 
 // 表别名
 type SpTableNameProcess interface {
-	Remark() string
+	SpAlias() string
 }
