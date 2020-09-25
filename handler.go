@@ -378,17 +378,18 @@ func SpiderVisitHistoryMiddleware(ctx iris.Context) {
 			ua := ctx.GetHeader("User-Agent")
 			// 判断ua是否是爬虫
 			for _, prefix := range NowSpAdmin.config.SpiderMatchList {
-				if strings.Contains(ua, prefix) {
+				if strings.Contains(strings.ToLower(ua), strings.ToLower(prefix)) {
 					ip := realip.Get(ctx.Request())
 					var d SpiderHistory
 					d.Ip = ip
 					d.Ua = ua
+					d.Match = prefix
 					d.Page = ctx.Path()
 					aff, err := NowSpAdmin.config.Engine.InsertOne(&d)
 					if err != nil || aff != 1 {
 						log.Printf("add spider visit history fail %v ", err)
 					}
-					break
+					return
 				}
 			}
 		}()

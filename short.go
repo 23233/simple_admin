@@ -36,10 +36,11 @@ type UserModel struct {
 // 模型爬虫监听模型
 type SpiderHistory struct {
 	Id         uint64    `xorm:"autoincr pk unique" json:"id"`
-	CreateTime time.Time `xorm:"created index" json:"create_time"`
-	Ip         string    `xorm:"varchar(15)" json:"ip"`
-	Ua         string    `xorm:"varchar(150)" json:"ua"`
-	Page       string    `xorm:"varchar(150)" json:"page"` // 访问路径
+	CreateTime time.Time `xorm:"created index" json:"create_time" comment:"创建时间"`
+	Ip         string    `xorm:"varchar(15)" json:"ip" comment:"ip地址"`
+	Match      string    `xorm:"varchar(40)" json:"match" comment:"爬虫名"`
+	Ua         string    `xorm:"varchar(150)" json:"ua" comment:"ua"`
+	Page       string    `xorm:"varchar(150)" json:"page" comment:"访问路径"` // 访问路径
 }
 
 func (c *SpiderHistory) Remark() string {

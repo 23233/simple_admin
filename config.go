@@ -27,7 +27,7 @@ func (config *Config) initConfig() Config {
 		UserModelSpecialUniqueName: "simple_admin_user_model",
 		AbridgeName:                "sp",
 		EnableSpiderWatch:          true,
-		SpiderMatchList:            []string{"spider", "Spider", "bot", "Bot", "crawler", "trident", "Trident", "Slurp", "craw"},
+		SpiderMatchList:            []string{"Baiduspider", "Googlebot", "YisouSpider", "HaosouSpider", "Bytespider", "360Spider", "bingbot", "Soso", "YisouSpider", "spider", "bot", "crawler", "Trident", "slurp", "craw"},
 	}
 }
 
