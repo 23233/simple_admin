@@ -43,7 +43,7 @@ type SpiderHistory struct {
 	Page       string    `xorm:"varchar(150)" json:"page" comment:"访问路径"` // 访问路径
 }
 
-func (c *SpiderHistory) Remark() string {
+func (c *SpiderHistory) SpAlias() string {
 	return "爬虫记录"
 }
 

@@ -48,7 +48,7 @@ func (config *Config) scanTableInfo() {
 		}
 		var d TableInfoList
 		if processor, ok := item.(SpTableNameProcess); ok {
-			d.RemarkName = processor.Remark()
+			d.RemarkName = processor.SpAlias()
 		}
 		d.RouterName = name
 		d.FieldList = cb

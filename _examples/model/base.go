@@ -35,7 +35,7 @@ type TestModelA struct {
 	Name string `xorm:"varchar(20)" comment:"名称"`
 }
 
-func (u *TestModelA) Remark() string {
+func (u *TestModelA) SpAlias() string {
 	return "赵日天"
 }
 
