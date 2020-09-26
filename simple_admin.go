@@ -431,15 +431,12 @@ func (lib *SpAdmin) bulkDeleteData(routerName string, ids string) error {
 }
 
 // 搜索数据
-func (lib *SpAdmin) searchData(routerName string, searchText string) ([]map[string]string, error) {
+func (lib *SpAdmin) searchData(routerName string, searchText string, columnMapName []string) ([]map[string]string, error) {
 	var result []map[string]string
-	cb, err := lib.config.tableNameGetModelInfo(routerName)
-	if err != nil {
-		return result, err
-	}
+
 	whereJoin := make([]string, 0)
-	for _, field := range cb.FieldList.Fields {
-		whereJoin = append(whereJoin, fmt.Sprintf("`%s` like ?", field.MapName))
+	for _, field := range columnMapName {
+		whereJoin = append(whereJoin, fmt.Sprintf("`%s` like ?", field))
 	}
 	base := func() *xorm.Session {
 		return lib.config.Engine.Table(routerName).Limit(20)
@@ -449,7 +446,7 @@ func (lib *SpAdmin) searchData(routerName string, searchText string) ([]map[stri
 		run = run.Or(s, searchText+"%")
 	}
 
-	result, err = run.QueryString()
+	result, err := run.QueryString()
 	if err != nil {
 		return result, err
 	}

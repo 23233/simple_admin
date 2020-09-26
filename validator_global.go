@@ -45,5 +45,6 @@ type CustomActionResp struct {
 
 // 搜索
 type SearchReq struct {
-	SearchText string `json:"search_text" form:"search_text" comment:"搜索内容" validate:"max=20" `
+	Cols       []string `json:"cols" form:"cols" comment:"列信息" validate:"required"` // column map name
+	SearchText string   `json:"search_text" form:"search_text" comment:"搜索内容" validate:"max=20" `
 }
