@@ -375,10 +375,16 @@ func SpiderVisitHistoryMiddleware(ctx iris.Context) {
 	// 如果开启了监听
 	if NowSpAdmin.config.EnableSpiderWatch {
 		go func() {
-			ua := ctx.GetHeader("User-Agent")
+			ua := strings.ToLower(ctx.GetHeader("User-Agent"))
+			// 判断是否跳过
+			for _, prefix := range NowSpAdmin.config.SpiderSkipList {
+				if strings.Contains(ua, prefix) {
+					return
+				}
+			}
 			// 判断ua是否是爬虫
 			for _, prefix := range NowSpAdmin.config.SpiderMatchList {
-				if strings.Contains(strings.ToLower(ua), strings.ToLower(prefix)) {
+				if strings.Contains(ua, prefix) {
 					ip := realip.Get(ctx.Request())
 					var d SpiderHistory
 					d.Ip = ip

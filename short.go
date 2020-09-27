@@ -23,6 +23,7 @@ type Config struct {
 	CustomActions              []CustomAction    // 自定义action列表
 	EnableSpiderWatch          bool              // 开启爬虫监听
 	SpiderMatchList            []string          // 爬虫ua匹配列表
+	SpiderSkipList             []string          // 爬虫匹配忽略
 }
 
 // 默认用户模型

@@ -78,6 +78,22 @@ func (config *Config) valid() error {
 	if config.Prefix[0] != '/' {
 		config.Prefix = "/" + config.Prefix
 	}
+	// 把爬虫队列内容全部转换为小写
+	if len(config.SpiderMatchList) >= 1 {
+		var r []string
+		for _, s := range config.SpiderMatchList {
+			r = append(r, strings.ToLower(s))
+		}
+		config.SpiderMatchList = r
+	}
+	if len(config.SpiderSkipList) >= 1 {
+		var r []string
+		for _, s := range config.SpiderSkipList {
+			r = append(r, strings.ToLower(s))
+		}
+		config.SpiderSkipList = r
+	}
+
 	return nil
 }
 
