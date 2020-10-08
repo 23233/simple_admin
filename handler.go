@@ -13,7 +13,7 @@ import (
 func Index(ctx iris.Context) {
 	rs := []rune(NowSpAdmin.config.Prefix)
 	ctx.ViewData("prefix", string(rs[1:]))
-	_ = ctx.View("simple_admin.template")
+	_ = ctx.View("simple_admin")
 }
 
 // 获取配置信息

@@ -17,7 +17,7 @@ require (
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/kataras/blocks v0.0.3 // indirect
 	github.com/kataras/golog v0.1.5 // indirect
-	github.com/kataras/iris/v12 v12.1.9-0.20200913012000-65b7983d7ac8
+	github.com/kataras/iris/v12 v12.2.0-alpha.0.20200919221030-c2f9e57b84f9
 	github.com/kataras/realip v0.0.1
 	github.com/klauspost/compress v1.11.0 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
@@ -29,7 +29,6 @@ require (
 	github.com/yudai/pp v2.0.1+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
-	golang.org/x/sys v0.0.0-20200909081042-eff7692f9009 // indirect
 	gopkg.in/ini.v1 v1.61.0 // indirect
 	xorm.io/xorm v1.0.5
 )

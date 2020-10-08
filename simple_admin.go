@@ -6,6 +6,7 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/imdario/mergo"
 	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/core/router"
 	"github.com/pkg/errors"
 	"log"
 	"reflect"
@@ -105,6 +106,7 @@ func New(c Config) (*SpAdmin, error) {
 
 // 在这里注册主路由
 func (lib *SpAdmin) Router(router iris.Party) {
+	router.RegisterView(iris.Blocks(AssetFile(), ".html"))
 	// 首页
 	router.Get("/", Index)
 	// 登录
@@ -599,11 +601,13 @@ func (lib *SpAdmin) Register() {
 	// $ go-bindata -o bindata.go -pkg simple_admin -prefix "simple_admin_templates" -fs ./simple_admin_templates/...
 	// $ go build
 	app := lib.config.App
-	app.RegisterView(iris.HTML(AssetFile(), ".template"))
 	app.HandleDir("/simple_admin_static", AssetFile())
 	app.PartyFunc(lib.config.Prefix, lib.Router)
 	// 其他所有操作都重定向
-	app.Get(lib.prefix+"/{root:path}", Index)
+	app.PartyFunc(lib.prefix, func(router router.Party) {
+		router.RegisterView(iris.Blocks(AssetFile(), ".html"))
+		router.Get("/{root:path}", Index)
+	})
 	app.UseGlobal(SpiderVisitHistoryMiddleware)
 }
 

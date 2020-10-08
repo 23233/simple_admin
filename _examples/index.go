@@ -72,25 +72,22 @@ func main() {
 		new(model.TestStructComplexModel),
 	}
 
+	//more RegisterView
+	tmpl := iris.Blocks("_examples/templates", ".html")
+	app.RegisterView(tmpl)
+
 	_, err := simple_admin.New(simple_admin.Config{
 		Engine:    Engine,
 		App:       app,
 		ModelList: modelList,
 		Name:      "测试sync",
-		RunSync:   true,
-		Prefix:    "/admin",
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	//more RegisterView
-	tmpl := iris.HTML("_examples/templates", ".html").Layout("layout.html")
-	tmpl.Reload(true) // reload templates on each request (development mode)
-	app.RegisterView(tmpl)
-
 	app.Get("/", func(ctx iris.Context) {
-		_ = ctx.View("index.html")
+		_ = ctx.View("index")
 	})
 
 	_ = app.Listen(":8080")
