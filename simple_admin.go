@@ -431,8 +431,8 @@ func (lib *SpAdmin) bulkDeleteData(routerName string, ids string) error {
 }
 
 // 搜索数据
-func (lib *SpAdmin) searchData(routerName string, searchText string, columnMapName []string) ([]map[string]string, error) {
-	var result []map[string]string
+func (lib *SpAdmin) searchData(routerName string, searchText string, columnMapName []string, fullMath bool) ([]map[string]string, error) {
+	var result = make([]map[string]string, 0)
 
 	whereJoin := make([]string, 0)
 	for _, field := range columnMapName {
@@ -443,7 +443,11 @@ func (lib *SpAdmin) searchData(routerName string, searchText string, columnMapNa
 	}
 	var run = base()
 	for _, s := range whereJoin {
-		run = run.Or(s, searchText+"%")
+		if fullMath {
+			run = run.Or(s, "%"+searchText+"%")
+		} else {
+			run = run.Or(s, searchText+"%")
+		}
 	}
 
 	result, err := run.QueryString()

@@ -185,7 +185,7 @@ func GetRouterData(ctx iris.Context) {
 func SearchRouterData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
 	req := ctx.Values().Get(SvKey).(*SearchReq)
-	data, err := NowSpAdmin.searchData(routerName, req.SearchText, req.Cols)
+	data, err := NowSpAdmin.searchData(routerName, req.SearchText, req.Cols, req.FullMath)
 	if err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
 		_, _ = ctx.JSON(iris.Map{

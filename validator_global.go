@@ -47,4 +47,5 @@ type CustomActionResp struct {
 type SearchReq struct {
 	Cols       []string `json:"cols" form:"cols" comment:"列信息" validate:"required"` // column map name
 	SearchText string   `json:"search_text" form:"search_text" comment:"搜索内容" validate:"max=20" `
+	FullMath   bool     `json:"full_math" form:"full_math" comment:"全匹配"`
 }
