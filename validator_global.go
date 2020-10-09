@@ -49,3 +49,18 @@ type SearchReq struct {
 	SearchText string   `json:"search_text" form:"search_text" comment:"搜索内容" validate:"max=20" `
 	FullMath   bool     `json:"full_math" form:"full_math" comment:"全匹配"`
 }
+
+// 获取数据源内容
+type DashBoardGetDataItem struct {
+	ColName     string `json:"col_name" comment:"列名" validate:"required,max=50"`
+	OpType      string `json:"op_type" comment:"操作" validate:"required,max=20"` // = > != < >= <= in (not in) like
+	Value       string `json:"value" comment:"值" validate:"required,max=100"`
+	Order       uint64 `json:"order" comment:"顺序" validate:"required"` // 以小到大排列
+	ConnectType string `json:"connect_type" comment:"连接方式"`            // and or xor not
+}
+
+// 获取数据源
+type DashBoardGetDataReq struct {
+	ColumnOp []DashBoardGetDataItem `json:"column_op"`
+	Limit    uint64                 `json:"limit"`
+}

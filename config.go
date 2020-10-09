@@ -38,6 +38,7 @@ func (config *Config) scanTableInfo() {
 	if config.EnableSpiderWatch {
 		config.ModelList = append(config.ModelList, new(SpiderHistory))
 	}
+	config.ModelList = append(config.ModelList, new(DashBoardScreen), new(DashBoard))
 	// 把用户模型合并到模型表格中
 	config.ModelList = append(config.ModelList, config.UserModel)
 	for _, item := range config.ModelList {
