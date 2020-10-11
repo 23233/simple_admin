@@ -29,6 +29,7 @@ type SpAdmin struct {
 	defaultMethods map[string]string // 默认权限方法
 	defaultRole    map[string]string // 默认角色
 	sitePolicy     map[string]string
+	adminPolicy    []string
 	prefix         string
 }
 
@@ -84,7 +85,8 @@ func New(c Config) (*SpAdmin, error) {
 			"login_site":  "login_site",
 			"user_manage": c.getUserModelTableName(),
 		},
-		prefix: DefaultPrefix,
+		adminPolicy: []string{c.Engine.TableName(new(DashBoardScreen)), c.Engine.TableName(new(DashBoard)), c.getUserModelTableName()},
+		prefix:      DefaultPrefix,
 	}
 	// 进行视图注册绑定
 	NowSpAdmin.Register()
@@ -114,6 +116,18 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	// 注册
 	router.Post("/reg", sv.Run(new(UserLoginReq)), Reg)
 	router.Get("/config", Configuration)
+
+	b := router.Party("/b", CustomJwt.Serve, TokenToUserUidMiddleware)
+	// 数据可视化屏幕
+	b.Get("/dash_board_screen", GetDashBoardScreen)
+	b.Post("/dash_board_screen", sv.Run(new(DashBoardScreenAddOrEditReq)), AddDashBoardScreen)
+	b.Delete("/dash_board_screen/{id:uint64}", DeleteBoardScreen)
+	// 数据可视化 图表
+	b.Get("/data_board/{id:uint64}", DashBoardIsSelfMiddleware, GetDashBoard)
+	b.Post("/data_board/{id:uint64}", sv.Run(new(DashBoardAddReq)), DashBoardIsSelfMiddleware, AddDashBoard)
+	b.Delete("/data_board/{id:uint64}/{rid:uint64}", DashBoardIsSelfMiddleware, DeleteDashBoard)
+	b.Post("/data_board_data/{routerName:string}", sv.Run(new(DashBoardGetDataReq)), DashBoardSourceGet)
+
 	c := router.Party("/v", CustomJwt.Serve, TokenToUserUidMiddleware)
 	// 获取当前用户
 	c.Get("/get_current_user", GetCurrentUser)
@@ -173,7 +187,7 @@ func (lib *SpAdmin) policyChange(userId, path, methods string, add bool) error {
 }
 
 // 获取权限 根据注册model filterMethods only needs methods data
-func (lib *SpAdmin) getAllPolicy(userIdOrRoleName string, filterMethods []string) [][]string {
+func (lib *SpAdmin) getAllPolicy(userIdOrRoleName string, filterMethods []string, excludeModelTable ...string) [][]string {
 	policyList := make([][]string, 0, (len(lib.modelTables)+len(lib.sitePolicy))*len(lib.defaultMethods))
 	var d []string
 	for _, v := range lib.sitePolicy {
@@ -182,13 +196,15 @@ func (lib *SpAdmin) getAllPolicy(userIdOrRoleName string, filterMethods []string
 	full := append(lib.modelTables, d...)
 	for _, item := range full {
 		if len(item) >= 1 {
+			if StringsContains(excludeModelTable, item) {
+				continue
+			}
 			for _, method := range lib.defaultMethods {
 				if StringsContains(filterMethods, method) {
 					policyList = append(policyList, []string{userIdOrRoleName, item, method})
 				}
 			}
 		}
-
 	}
 	return policyList
 }
@@ -244,7 +260,7 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 			break
 		case "staff":
 			// 职员只能看
-			rules := lib.getAllPolicy(role, []string{"GET"})
+			rules := lib.getAllPolicy(role, []string{"GET"}, lib.adminPolicy...)
 			for _, rule := range rules {
 				if rule != nil {
 					_, err := lib.casbinEnforcer.AddPermissionForUser(role, rule[1], rule[2])
@@ -265,14 +281,15 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 					}
 				}
 			}
-			// 管理员还能进行用户管理
+			// 专属的管理员控制
 			for _, value := range lib.defaultMethods {
-				_, err := lib.casbinEnforcer.AddPermissionForUser(role, lib.sitePolicy["user_manage"], value)
-				if err != nil {
-					return MsgLog(fmt.Sprintf("initConfig admin user manage fail  %s", err))
+				for _, s := range lib.adminPolicy {
+					_, err := lib.casbinEnforcer.AddPermissionForUser(role, s, value)
+					if err != nil {
+						return MsgLog(fmt.Sprintf("initConfig admin user manage fail  %s", err))
+					}
 				}
 			}
-
 			break
 		}
 	}
@@ -291,17 +308,15 @@ func (lib *SpAdmin) initRolesAndPermissions() error {
 // 分页
 func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 	var p PagResult
-	pageSize := lib.config.PageSize
-	start := (page - 1) * pageSize
-	offset := pageSize
-	end := page*pageSize + offset
+	start := (page - 1) * lib.config.PageSize
+	end := page * (lib.config.PageSize * 2)
 	// 先获取总数量
 	allCount, err := lib.config.Engine.Table(routerName).Count()
 	if err != nil {
 		return p, err
 	}
 
-	dataList, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Limit(pageSize).QueryString()
+	dataList, err := lib.config.Engine.Table(routerName).And("id between ? and ?", start, end).Limit(lib.config.PageSize).QueryString()
 	if err != nil {
 		return p, err
 	}
@@ -327,7 +342,7 @@ func (lib *SpAdmin) Pagination(routerName string, page int) (PagResult, error) {
 		}
 	}
 
-	p.PageSize = pageSize
+	p.PageSize = lib.config.PageSize
 	p.Page = page
 	p.All = allCount
 	p.Data = dataList
@@ -471,17 +486,6 @@ func (lib *SpAdmin) getValue(ctx iris.Context, k string) string {
 		c = ctx.FormValue(k)
 	}
 	return c
-}
-
-// 字符串转换成bool
-func parseBool(str string) (bool, error) {
-	switch str {
-	case "1", "t", "T", "true", "TRUE", "True":
-		return true, nil
-	case "0", "f", "F", "false", "FALSE", "False":
-		return false, nil
-	}
-	return false, errors.New("解析出错")
 }
 
 // 对应关系获取

@@ -64,3 +64,18 @@ type DashBoardGetDataReq struct {
 	ColumnOp []DashBoardGetDataItem `json:"column_op"`
 	Limit    uint64                 `json:"limit"`
 }
+
+// 数据屏幕
+type DashBoardScreenAddOrEditReq struct {
+	Id        uint64 `json:"id" form:"name" comment:"id"`
+	Name      string `json:"name" form:"name" comment:"名称" validate:"required,max=25"`
+	IsDefault bool   `json:"is_default" form:"is_default" comment:"默认"`
+}
+
+// 数据图表新增
+type DashBoardAddReq struct {
+	Name       string `json:"name" form:"name" comment:"名称" validate:"required,max=45"`
+	DataSource string `json:"data_source" form:"data_source" comment:"数据源配置" validate:"required"`
+	Config     string `json:"config" form:"config" comment:"图表配置" validate:"required"`
+	ChartType  string `json:"chart_type" form:"chart_type" comment:"图表类型" validate:"required"`
+}

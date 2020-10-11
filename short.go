@@ -54,7 +54,7 @@ type DashBoardScreen struct {
 	Name         string `xorm:"varchar(45) notnull" comment:"仪表台名称" json:"name"`
 	Priority     uint64 `xorm:"notnull" comment:"优先级" json:"priority"`
 	IsDefault    bool   `xorm:"notnull" comment:"默认" json:"is_default"`
-	CreateUserId uint64 `xorm:"notnull" comment:"用户ID" json:"create_user_id"`
+	CreateUserId uint64 `xorm:"notnull index" comment:"用户ID" json:"create_user_id"`
 }
 
 func (c *DashBoardScreen) SpAlias() string {
@@ -63,7 +63,7 @@ func (c *DashBoardScreen) SpAlias() string {
 
 type DashBoard struct {
 	Id         uint64 `xorm:"autoincr pk unique" json:"id"`
-	ScreenId   uint64 `sp:"fk('DashBoardScreen')" comment:"屏幕ID" json:"screen_id" `
+	ScreenId   uint64 `sp:"fk('DashBoardScreen') index" comment:"屏幕ID" json:"screen_id" `
 	Name       string `xorm:"varchar(45) notnull" comment:"名称" json:"name"`
 	ChartType  string `xorm:"varchar(40) notnull" comment:"图表类型" json:"chart_type"`
 	DataSource string `xorm:"text notnull" comment:"数据源" json:"data_source"`

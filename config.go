@@ -177,13 +177,12 @@ func (config *Config) initCasBin() (*casbin.Enforcer, error) {
 
 // 进行SYNC
 func (config *Config) runSync() error {
+	var err error
 	if config.RunSync {
-		err := config.Engine.Sync2(config.ModelList...)
-		if err != nil {
-			return err
-		}
+		err = config.Engine.Sync2(config.ModelList...)
+	} else {
+		err = config.Engine.Sync2(config.UserModel, new(DashBoard), new(DashBoardScreen))
 	}
-	err := config.Engine.Sync2(config.UserModel)
 	return err
 }
 

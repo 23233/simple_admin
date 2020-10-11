@@ -7,7 +7,27 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"xorm.io/xorm"
 )
+
+// 错误返回
+func fastError(err error, ctx iris.Context, msg ...string) {
+	ctx.StatusCode(iris.StatusBadRequest)
+	var m string
+	if len(msg) >= 1 {
+		m = msg[0]
+	} else {
+		if err == nil {
+			m = "请求解析出错"
+		} else {
+			m = err.Error()
+		}
+	}
+	_, _ = ctx.JSON(iris.Map{
+		"detail": m,
+	})
+	return
+}
 
 // 首页
 func Index(ctx iris.Context) {
@@ -32,26 +52,18 @@ func Login(ctx iris.Context) {
 	var valuesMap = make(map[string]string)
 	has, err := NowSpAdmin.config.Engine.Table(NowSpAdmin.config.getUserModelTableName()).Where("user_name = ?", req.UserName).Get(&valuesMap)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": "get user requests fail",
-		})
+		fastError(err, ctx, "获取用户请求错误")
 		return
 	}
 	if has == false {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": "not find user",
-		})
+		fastError(err, ctx, "没有找到用户")
 		return
+
 	}
 	// 进行登录验证
 	success := NowSpAdmin.config.validPassword(req.Password, valuesMap["salt"], valuesMap["password"])
 	if success == false {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": "password fail",
-		})
+		fastError(err, ctx, "密码错误")
 		return
 	}
 
@@ -62,7 +74,7 @@ func Login(ctx iris.Context) {
 	if hasPolicy == false {
 		ctx.StatusCode(iris.StatusUnauthorized)
 		_, _ = ctx.JSON(iris.Map{
-			"detail": "you account login prohibited",
+			"detail": "你的账户已被禁止登录,请联系管理员",
 		})
 		return
 	}
@@ -79,10 +91,7 @@ func Reg(ctx iris.Context) {
 	// 生成用户
 	aff, err := NowSpAdmin.addUser(req.UserName, req.Password, NowSpAdmin.defaultRole["guest"])
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	// 生成jwt
@@ -117,10 +126,7 @@ func GetRouters(ctx iris.Context) {
 		// 判断是否有读取权限
 		has, err := NowSpAdmin.casbinEnforcer.Enforce(uid, m.RouterName, NowSpAdmin.defaultMethods["GET"])
 		if err != nil {
-			ctx.StatusCode(iris.StatusBadRequest)
-			_, _ = ctx.JSON(iris.Map{
-				"detail": err.Error(),
-			})
+			fastError(err, ctx)
 			return
 		}
 		if has == true {
@@ -149,10 +155,7 @@ func GetRouterFields(ctx iris.Context) {
 
 	cb, err := NowSpAdmin.config.tableNameGetModelInfo(routerName)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	_, _ = ctx.JSON(cb.FieldList)
@@ -172,10 +175,7 @@ func GetRouterData(ctx iris.Context) {
 	page := ctx.URLParamIntDefault("page", 1)
 	data, err := NowSpAdmin.Pagination(routerName, page)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	_, _ = ctx.JSON(data)
@@ -187,10 +187,7 @@ func SearchRouterData(ctx iris.Context) {
 	req := ctx.Values().Get(SvKey).(*SearchReq)
 	data, err := NowSpAdmin.searchData(routerName, req.SearchText, req.Cols, req.FullMath)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 
@@ -202,18 +199,12 @@ func GetRouterSingleData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
 	id, err := ctx.Params().GetUint64("id")
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	data, err := NowSpAdmin.SingleData(routerName, id)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	if len(data) >= 1 {
@@ -228,18 +219,12 @@ func AddRouterData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
 	newInstance, err := NowSpAdmin.getCtxValues(routerName, ctx)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	err = NowSpAdmin.addData(routerName, newInstance)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	_, _ = ctx.JSON(iris.Map{})
@@ -250,43 +235,28 @@ func EditRouterData(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
 	id, err := ctx.Params().GetUint64("id")
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	// 获取ID 判断是否存在
 	has, err := NowSpAdmin.dataExists(routerName, id)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	if has != true {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": fmt.Sprintf("not find this data %d", id),
-		})
+		fastError(err, ctx, fmt.Sprintf("not find this data %d", id))
 		return
 	}
 	newInstance, err := NowSpAdmin.getCtxValues(routerName, ctx)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	// 更新数据
 	err = NowSpAdmin.editData(routerName, id, newInstance)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	_, _ = ctx.JSON(iris.Map{})
@@ -299,10 +269,7 @@ func RemoveRouterData(ctx iris.Context) {
 	// 进行批量删除
 	err := NowSpAdmin.bulkDeleteData(routerName, req.Ids)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	_, _ = ctx.JSON(iris.Map{})
@@ -316,31 +283,21 @@ func ChangeUserPassword(ctx iris.Context) {
 	// 判断当前用户是否是admin权限
 	roles, err := NowSpAdmin.casbinEnforcer.GetImplicitRolesForUser(uid)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	// admin可以变更所有 否则只能变更自己的密码
 	if StringsContains(roles, NowSpAdmin.defaultRole["admin"]) == false {
 		un := ctx.Values().Get("un").(string)
 		if un != req.UserName {
-			// 变更
-			ctx.StatusCode(iris.StatusBadRequest)
-			_, _ = ctx.JSON(iris.Map{
-				"detail": "no permission to proceed",
-			})
+			fastError(err, ctx, "无权限进行操作")
 			return
 		}
 	}
 	// 直接变更
 	err = NowSpAdmin.changeUserPassword(req.Id, req.Password)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	_, _ = ctx.JSON(iris.Map{})
@@ -356,10 +313,7 @@ func ChangeUserRoles(ctx iris.Context) {
 		_, err = NowSpAdmin.casbinEnforcer.DeleteRoleForUser(strconv.FormatUint(req.Id, 10), req.Role)
 	}
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	_, _ = ctx.JSON(iris.Map{})
@@ -369,6 +323,181 @@ func ChangeUserRoles(ctx iris.Context) {
 //func ChangeUserPolicy(ctx iris.Context) {
 //
 //}
+
+// 数据可视化屏幕
+func GetDashBoardScreen(ctx iris.Context) {
+	userId := ctx.Values().Get("uid").(string)
+	result := make([]DashBoardScreen, 0)
+	err := NowSpAdmin.config.Engine.Where("create_user_id = ?", userId).Find(&result)
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	_, _ = ctx.JSON(result)
+}
+
+func AddDashBoardScreen(ctx iris.Context) {
+	userId := ctx.Values().Get("uid").(string)
+	req := ctx.Values().Get(SvKey).(*DashBoardScreenAddOrEditReq)
+	var single DashBoardScreen
+	if req.Id >= 1 {
+		// 修改
+		has, err := NowSpAdmin.config.Engine.Where("create_user_id = ? and id = ?", userId, req.Id).Get(&single)
+		if err != nil {
+			fastError(err, ctx)
+			return
+		}
+		if has == false {
+			fastError(err, ctx, "数据获取失败")
+			return
+		}
+		single.Name = req.Name
+		single.IsDefault = req.IsDefault
+		aff, err := NowSpAdmin.config.Engine.ID(single.Id).Cols("name", "is_default").Update(&single)
+		if err != nil || aff == 0 {
+			fastError(err, ctx, "更新数据失败")
+			return
+		}
+	} else {
+		single.Name = req.Name
+		single.IsDefault = req.IsDefault
+		id, _ := strconv.Atoi(userId)
+		single.CreateUserId = uint64(id)
+		aff, err := NowSpAdmin.config.Engine.InsertOne(&single)
+		if err != nil || aff == 0 {
+			fastError(err, ctx, "新增数据失败")
+			return
+		}
+	}
+	_, _ = ctx.JSON(iris.Map{})
+
+}
+
+func DeleteBoardScreen(ctx iris.Context) {
+	userId := ctx.Values().Get("uid").(string)
+	id, err := ctx.Params().GetUint64("id")
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	var d DashBoardScreen
+	aff, err := NowSpAdmin.config.Engine.Where("create_user_id = ? and id = ?", userId, id).Delete(&d)
+	if err != nil || aff < 1 {
+		fastError(err, ctx, "删除数据失败")
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 数据图表
+func GetDashBoard(ctx iris.Context) {
+	screenId, _ := ctx.Params().GetUint64("id")
+	result := make([]DashBoard, 0)
+	err := NowSpAdmin.config.Engine.Where("screen_id = ?", screenId).Find(&result)
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	_, _ = ctx.JSON(result)
+
+}
+
+// 新增图表
+func AddDashBoard(ctx iris.Context) {
+	req := ctx.Values().Get(SvKey).(*DashBoardAddReq)
+	screenId, _ := ctx.Params().GetUint64("id")
+	var single DashBoard
+	single.ScreenId = screenId
+	single.Name = req.Name
+	single.ChartType = req.ChartType
+	single.DataSource = req.DataSource
+	single.Config = req.Config
+	aff, err := NowSpAdmin.config.Engine.InsertOne(&single)
+	if err != nil || aff == 0 {
+		fastError(err, ctx, "新增数据失败")
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 删除图表
+func DeleteDashBoard(ctx iris.Context) {
+	id, err := ctx.Params().GetUint64("rid")
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	var d DashBoard
+	aff, err := NowSpAdmin.config.Engine.ID(id).Delete(&d)
+	if err != nil || aff < 1 {
+		fastError(err, ctx, "删除数据失败")
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 获取图表数据源
+func DashBoardSourceGet(ctx iris.Context) {
+	routerName := ctx.Params().Get("routerName")
+	userUid := ctx.Values().Get("uid").(string)
+	has, err := NowSpAdmin.casbinEnforcer.Enforce(userUid, routerName, "GET")
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	if has == false {
+		ctx.StatusCode(iris.StatusMethodNotAllowed)
+		_, _ = ctx.JSON(iris.Map{
+			"detail": "无权操作,请联系管理员",
+		})
+		return
+	}
+	req := ctx.Values().Get(SvKey).(*DashBoardGetDataReq)
+	base := func() *xorm.Session {
+		return NowSpAdmin.config.Engine.Table(routerName)
+	}
+	var run = base()
+	if len(req.ColumnOp) >= 1 {
+		for i, item := range req.ColumnOp {
+			sql := fmt.Sprintf("%s %s ?", item.ColName, item.OpType)
+			if StringsContains([]string{"in", "not in"}, item.OpType) {
+				if item.OpType == "in" {
+					run = run.In(item.ColName, strings.Split(item.Value, ","))
+				} else {
+					run = run.NotIn(item.ColName, strings.Split(item.Value, ","))
+				}
+				continue
+			}
+			if len(item.ConnectType) >= 1 {
+				if i == 0 {
+					run = run.Where(sql, item.Value)
+					continue
+				}
+				switch item.ConnectType {
+				case "and":
+					run = run.And(sql, item.Value)
+					break
+				case "or":
+					run = run.Or(sql, item.Value)
+					break
+				default:
+					break
+				}
+			} else {
+				run = run.Where(sql, item.Value)
+			}
+		}
+	}
+	if req.Limit > 0 {
+		run = run.Limit(int(req.Limit))
+	}
+	dataList, err := run.QueryString()
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	_, _ = ctx.JSON(dataList)
+}
 
 // 爬虫监听Middleware
 func SpiderVisitHistoryMiddleware(ctx iris.Context) {
@@ -410,16 +539,13 @@ func PolicyValidMiddleware(ctx iris.Context) {
 	routerName := ctx.Params().Get("routerName")
 	has, err := NowSpAdmin.casbinEnforcer.Enforce(userUid, routerName, methods)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	if has == false {
 		ctx.StatusCode(iris.StatusMethodNotAllowed)
 		_, _ = ctx.JSON(iris.Map{
-			"detail": "no permission to proceed",
+			"detail": "无权操作,请联系管理员",
 		})
 		return
 	}
@@ -432,10 +558,7 @@ func PolicyRequireAdminMiddleware(ctx iris.Context) {
 	// 判断当前用户是否是admin权限
 	roles, err := NowSpAdmin.casbinEnforcer.GetImplicitRolesForUser(uid)
 	if err != nil {
-		ctx.StatusCode(iris.StatusBadRequest)
-		_, _ = ctx.JSON(iris.Map{
-			"detail": err.Error(),
-		})
+		fastError(err, ctx)
 		return
 	}
 	if StringsContains(roles, NowSpAdmin.defaultRole["admin"]) == false {
@@ -443,6 +566,23 @@ func PolicyRequireAdminMiddleware(ctx iris.Context) {
 		_, _ = ctx.JSON(iris.Map{
 			"detail": "no permission to proceed",
 		})
+		return
+	}
+	ctx.Next()
+}
+
+// 数据可视化必须本人操作Middleware
+func DashBoardIsSelfMiddleware(ctx iris.Context) {
+	userId := ctx.Values().Get("uid").(string)
+	screenId, err := ctx.Params().GetUint64("id")
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	// 判断用户是否具有数据屏幕权限
+	has, err := NowSpAdmin.config.Engine.Where("id = ? and create_user_id = ?", screenId, userId).Exist(new(DashBoardScreen))
+	if err != nil || has == false {
+		fastError(err, ctx, "获取图表数据失败")
 		return
 	}
 	ctx.Next()
