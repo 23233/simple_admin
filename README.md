@@ -22,6 +22,11 @@ So I'm just use i familiar technology :
 Hope to help everyone !
 
 ## preview
+![welcome](https://raw.githubusercontent.com/23233/simple_admin/master/_preview/welcome.png)
+![dashBoard](https://raw.githubusercontent.com/23233/simple_admin/master/_preview/dashBoard.png)
+![dataList](https://raw.githubusercontent.com/23233/simple_admin/master/_preview/dataList.png)
+![guest](https://raw.githubusercontent.com/23233/simple_admin/master/_preview/guest.png)
+![userManage](https://raw.githubusercontent.com/23233/simple_admin/master/_preview/userManage.png)
 
 ## use
 
