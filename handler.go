@@ -14,14 +14,13 @@ import (
 func fastError(err error, ctx iris.Context, msg ...string) {
 	ctx.StatusCode(iris.StatusBadRequest)
 	var m string
+	if err == nil {
+		m = "请求解析出错"
+	} else {
+		m = err.Error()
+	}
 	if len(msg) >= 1 {
 		m = msg[0]
-	} else {
-		if err == nil {
-			m = "请求解析出错"
-		} else {
-			m = err.Error()
-		}
 	}
 	_, _ = ctx.JSON(iris.Map{
 		"detail": m,
@@ -402,6 +401,18 @@ func GetDashBoard(ctx iris.Context) {
 
 }
 
+// 单个图表
+func GetSingleDashBoard(ctx iris.Context) {
+	id, _ := ctx.Params().GetUint64("rid")
+	var d DashBoard
+	has, err := NowSpAdmin.config.Engine.ID(id).Get(&d)
+	if err != nil || has == false {
+		fastError(err, ctx)
+		return
+	}
+	_, _ = ctx.JSON(d)
+}
+
 // 新增图表
 func AddDashBoard(ctx iris.Context) {
 	req := ctx.Values().Get(SvKey).(*DashBoardAddReq)
@@ -415,6 +426,34 @@ func AddDashBoard(ctx iris.Context) {
 	aff, err := NowSpAdmin.config.Engine.InsertOne(&single)
 	if err != nil || aff == 0 {
 		fastError(err, ctx, "新增数据失败")
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 编辑图表
+func EditDashBoard(ctx iris.Context) {
+	req := ctx.Values().Get(SvKey).(*DashBoardAddReq)
+	screenId, _ := ctx.Params().GetUint64("id")
+	id, err := ctx.Params().GetUint64("rid")
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	var d DashBoard
+	has, err := NowSpAdmin.config.Engine.ID(id).Get(&d)
+	if err != nil || has == false {
+		fastError(err, ctx)
+		return
+	}
+	d.ChartType = req.ChartType
+	d.Config = req.Config
+	d.DataSource = req.DataSource
+	d.Name = req.Name
+	d.ScreenId = screenId
+	aff, err := NowSpAdmin.config.Engine.ID(id).Update(&d)
+	if err != nil || aff < 1 {
+		fastError(err, ctx, "更新失败")
 		return
 	}
 	_, _ = ctx.JSON(iris.Map{})
