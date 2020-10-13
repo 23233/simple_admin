@@ -103,7 +103,7 @@ sp("autogen")
 ```golang
 sp("lineTo(Id)")
 ```
-* fk -> 外键支持,1对1 1多多,目前只支持主键id 必须拥有id字段* 
+* fk -> 外键支持,1对1 1对多,目前只支持主键id 必须拥有id字段* 
 ```golang
 sp("fk('ComplexModelC')") 
 sp("fk('ComplexModelC') multiple")
@@ -128,10 +128,10 @@ sp:"tag(img)"
 - [] full test (不打算近期支持)
 - [] gorm support (看反馈)
 - [] gin support (看反馈)
-- [x] dashboard
-- [x] simple event monitor
-- [x] add spider visit monitor options enable!
-- [x] custom action 
+- [x] dashboard (数据可视化)
+- [x] simple event monitor (事件监听)
+- [x] add spider visit monitor options enable! (自带爬虫检测 可选开启)
+- [x] custom action (自定义操作)
 - [] fine permission manage (看反馈)
 - [] support micro frontend , use [qiankun](https://github.com/umijs/qiankun) (这样大家就可以自定义页面 二次开发)
 - [] beat more features  
