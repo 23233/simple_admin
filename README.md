@@ -123,9 +123,12 @@ sp:"tag(img)"
 ## todo features
 - [] full test
 - [] gorm support
+- [] gin support
+
 - [x] dashboard
 - [x] simple event monitor
 - [x] add spider visit monitor options enable!
 - [x] custom action 
 - [] fine permission manage
-- [] beat more features
+- [] support micro frontend , use [qiankun](https://github.com/umijs/qiankun)
+- [] beat more features  
