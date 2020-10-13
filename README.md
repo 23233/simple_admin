@@ -124,7 +124,6 @@ sp:"tag(img)"
 - [] full test
 - [] gorm support
 - [] gin support
-
 - [x] dashboard
 - [x] simple event monitor
 - [x] add spider visit monitor options enable!

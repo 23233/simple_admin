@@ -434,7 +434,6 @@ func AddDashBoard(ctx iris.Context) {
 // 编辑图表
 func EditDashBoard(ctx iris.Context) {
 	req := ctx.Values().Get(SvKey).(*DashBoardAddReq)
-	screenId, _ := ctx.Params().GetUint64("id")
 	id, err := ctx.Params().GetUint64("rid")
 	if err != nil {
 		fastError(err, ctx)
@@ -450,13 +449,36 @@ func EditDashBoard(ctx iris.Context) {
 	d.Config = req.Config
 	d.DataSource = req.DataSource
 	d.Name = req.Name
-	d.ScreenId = screenId
 	aff, err := NowSpAdmin.config.Engine.ID(id).Update(&d)
 	if err != nil || aff < 1 {
 		fastError(err, ctx, "更新失败")
 		return
 	}
 	_, _ = ctx.JSON(iris.Map{})
+}
+
+// 更新图表位置
+func EditDashBoardPosition(ctx iris.Context) {
+	req := ctx.Values().Get(SvKey).(*DashBoardChangePositionReq)
+	id, err := ctx.Params().GetUint64("rid")
+	if err != nil {
+		fastError(err, ctx)
+		return
+	}
+	var d DashBoard
+	has, err := NowSpAdmin.config.Engine.ID(id).Get(&d)
+	if err != nil || has == false {
+		fastError(err, ctx)
+		return
+	}
+	d.Extra = req.Extra
+	aff, err := NowSpAdmin.config.Engine.ID(id).Update(&d)
+	if err != nil || aff < 1 {
+		fastError(err, ctx, "更新失败")
+		return
+	}
+	_, _ = ctx.JSON(iris.Map{})
+
 }
 
 // 删除图表

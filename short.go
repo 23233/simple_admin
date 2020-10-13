@@ -67,6 +67,7 @@ type DashBoard struct {
 	Name       string `xorm:"varchar(45) notnull" comment:"名称" json:"name"`
 	ChartType  string `xorm:"varchar(40) notnull" comment:"图表类型" json:"chart_type"`
 	DataSource string `xorm:"text notnull" comment:"数据源" json:"data_source"`
+	Extra      string `xorm:"text" comment:"附加信息" json:"extra"`
 	Config     string `xorm:"text notnull" comment:"配置" json:"config"`
 }
 

@@ -127,6 +127,7 @@ func (lib *SpAdmin) Router(router iris.Party) {
 	b.Get("/data_board/{id:uint64}/{rid:uint64}", DashBoardIsSelfMiddleware, GetSingleDashBoard)
 	b.Post("/data_board/{id:uint64}", sv.Run(new(DashBoardAddReq)), DashBoardIsSelfMiddleware, AddDashBoard)
 	b.Put("/data_board/{id:uint64}/{rid:uint64}", sv.Run(new(DashBoardAddReq)), DashBoardIsSelfMiddleware, EditDashBoard)
+	b.Put("/data_board_size/{id:uint64}/{rid:uint64}", sv.Run(new(DashBoardChangePositionReq)), DashBoardIsSelfMiddleware, EditDashBoardPosition)
 	b.Delete("/data_board/{id:uint64}/{rid:uint64}", DashBoardIsSelfMiddleware, DeleteDashBoard)
 	b.Post("/data_board_data/{routerName:string}", sv.Run(new(DashBoardGetDataReq)), DashBoardSourceGet)
 

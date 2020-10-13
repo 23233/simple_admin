@@ -79,3 +79,8 @@ type DashBoardAddReq struct {
 	Config     string `json:"config" form:"config" comment:"图表配置" validate:"required"`
 	ChartType  string `json:"chart_type" form:"chart_type" comment:"图表类型" validate:"required"`
 }
+
+// 数据图表位置变更
+type DashBoardChangePositionReq struct {
+	Extra string `json:"extra" form:"extra" comment:"附加信息" validate:"required"`
+}
