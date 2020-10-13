@@ -1,3 +1,5 @@
+## [中文](https://github.com/23233/simple_admin/blob/master/README_ZH.md)
+
 ## about simple_admin
 
 First time , very thanks for iris framework and developer to helps~
@@ -18,6 +20,8 @@ So I'm just use i familiar technology :
 * react -> ant.design
 
 Hope to help everyone !
+
+## preview
 
 ## use
 
@@ -112,10 +116,9 @@ sp:"tag(img)"
 * func name must use SpAction , just like SpAction() SpAction123() is ok , must return simple_admin.CustomAction struct !
 
 ## todo features
-- [] more futures support: data filter , simple custom action ...
 - [] full test
 - [] gorm support
-- [] add websocket dashboard
+- [x] dashboard
 - [x] simple event monitor
 - [x] add spider visit monitor options enable!
 - [x] custom action 
