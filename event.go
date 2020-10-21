@@ -22,12 +22,12 @@ type SpUpdateAfterProcess interface {
 
 // 删除之前
 type SpDeleteBeforeProcess interface {
-	SpDeleteBefore(uint64)
+	SpDeleteBefore()
 }
 
 // 删除之后
 type SpDeleteAfterProcess interface {
-	SpDeleteAfter(uint64)
+	SpDeleteAfter()
 }
 
 // 表别名

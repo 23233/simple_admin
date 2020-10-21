@@ -412,25 +412,36 @@ func (lib *SpAdmin) editData(routerName string, id uint64, data reflect.Value) e
 
 // 数据删除
 func (lib *SpAdmin) deleteData(routerName string, id uint64) error {
-
-	// 更新之前的事件
 	model, _ := lib.config.tableNameGetModel(routerName)
-	if processor, ok := model.(SpDeleteBeforeProcess); ok {
-		processor.SpDeleteBefore(id)
+	t := reflect.TypeOf(model)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
 	}
-
-	affected, err := lib.config.Engine.Exec(fmt.Sprintf("delete from %s where id = ?", routerName), id)
+	newInstance := reflect.New(t).Interface()
+	// 找到这条数据
+	has, err := lib.config.Engine.Table(newInstance).ID(id).Get(newInstance)
 	if err != nil {
 		return err
 	}
-	obj, err := affected.RowsAffected()
+	if has == false {
+		return errors.New("未找到此数据")
+	}
+	// 删除之前的事件
 
-	if obj < 1 {
-		return MsgLog("delete data fail ")
+	if processor, ok := newInstance.(SpDeleteBeforeProcess); ok {
+		processor.SpDeleteBefore()
 	}
 
-	if processor, ok := model.(SpDeleteAfterProcess); ok {
-		processor.SpDeleteAfter(id)
+	aff, err := lib.config.Engine.ID(id).Unscoped().Delete(model)
+	if err != nil {
+		return err
+	}
+	if aff < 1 {
+		return MsgLog("删除数据失败")
+	}
+
+	if processor, ok := newInstance.(SpDeleteAfterProcess); ok {
+		processor.SpDeleteAfter()
 	}
 
 	return nil
@@ -438,15 +449,18 @@ func (lib *SpAdmin) deleteData(routerName string, id uint64) error {
 
 // 批量数据删除
 func (lib *SpAdmin) bulkDeleteData(routerName string, ids string) error {
-	affected, err := lib.config.Engine.Exec(fmt.Sprintf("delete from %s where id in (%s)", routerName, ids))
-	if err != nil {
-		return err
+	idList := strings.Split(ids, ",")
+	for _, item := range idList {
+		id, err := strconv.Atoi(item)
+		if err != nil {
+			return err
+		}
+		err = lib.deleteData(routerName, uint64(id))
+		if err != nil {
+			return err
+		}
 	}
-	obj, err := affected.RowsAffected()
 
-	if obj < 1 {
-		return MsgLog("delete data fail ")
-	}
 	return nil
 }
 

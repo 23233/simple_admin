@@ -47,6 +47,13 @@ func (u *TestModelA) SpInsertAfter() {
 	println("插入之后")
 }
 
+func (u *TestModelA) SpDeleteBefore() {
+	println("删除之前")
+}
+func (u *TestModelA) SpDeleteAfter() {
+	println("删除之后")
+}
+
 // 自定义action
 func (u TestModelA) SpAction() simple_admin.CustomAction {
 	var d simple_admin.CustomAction
