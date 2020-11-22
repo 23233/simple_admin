@@ -387,7 +387,7 @@ func (lib *SpAdmin) addData(routerName string, data reflect.Value) error {
 
 // 数据修改
 func (lib *SpAdmin) editData(routerName string, id uint64, data reflect.Value) error {
-	singleData := data.Interface()
+	singleData := lib.incrSetValue(data, routerName, id).Interface()
 
 	// 更新之前的事件
 	if processor, ok := singleData.(SpUpdateBeforeProcess); ok {
@@ -526,7 +526,7 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 			}
 			if len(cb.FieldList.Created) >= 1 {
 				var equal = false
-				for k, _ := range cb.FieldList.Created {
+				for k := range cb.FieldList.Created {
 					if column.MapName == k {
 						equal = true
 						break
@@ -593,6 +593,25 @@ func (lib *SpAdmin) getCtxValues(routerName string, ctx iris.Context) (reflect.V
 	}
 
 	return newInstance, nil
+}
+
+// id赋值
+func (lib *SpAdmin) incrSetValue(data reflect.Value, routerName string, id uint64) reflect.Value {
+	cb, _ := lib.config.tableNameGetModelInfo(routerName)
+	for _, column := range cb.FieldList.Fields {
+		if column.MapName == cb.FieldList.AutoIncrement {
+			switch column.Types {
+			case "int", "int8", "int16", "int32", "int64":
+				data.Elem().FieldByName(column.Name).SetInt(int64(id))
+				return data
+			case "uint", "uint8", "uint16", "uint32", "uint64":
+				data.Elem().FieldByName(column.Name).SetUint(id)
+				return data
+			}
+
+		}
+	}
+	return data
 }
 
 // 变更用户密码
