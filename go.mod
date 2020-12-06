@@ -3,7 +3,7 @@ module github.com/23233/simple_admin
 go 1.14
 
 require (
-	github.com/23233/sv v1.1.1
+	github.com/23233/sv v1.1.2
 	github.com/CloudyKit/jet/v5 v5.0.2 // indirect
 	github.com/casbin/casbin/v2 v2.2.2
 	github.com/casbin/xorm-adapter v0.0.0-20191120030838-267478260350
